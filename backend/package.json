@@ -1,0 +1,9 @@
+{
+  "name": "hiregen-ai-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest",
+    "test:integration": "vitest run tests/integration"
+  }
+}

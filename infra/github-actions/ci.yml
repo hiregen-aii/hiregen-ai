@@ -1,0 +1,2 @@
+# Team 4 (4.4 DevOps) — Srajit Saxena owns this file
+# CI pipeline: lint -> unit tests -> integration tests -> build -> deploy

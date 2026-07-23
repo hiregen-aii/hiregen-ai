@@ -1,0 +1,2 @@
+-- Full schema — see SRS section 9 for reference.
+-- Team 2 owns: hiring_signals, companies, contacts, company_research, leads

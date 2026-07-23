@@ -1,0 +1,8 @@
+{
+  "name": "hiregen-ai-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}
