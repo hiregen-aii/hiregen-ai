@@ -1,5 +1,5 @@
 // backend/src/utils/dedupe.ts
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 export function generateDedupeKey(domain: string, roleTitle: string, sourceUrl: string): string {
   const normalized = `${domain.toLowerCase()}|${roleTitle.toLowerCase().trim()}|${sourceUrl}`;

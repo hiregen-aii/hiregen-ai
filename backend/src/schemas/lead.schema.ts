@@ -1,4 +1,6 @@
 // backend/src/schemas/lead.schema.ts
+import { z } from 'zod';
+
 export const leadSchema = z.object({
   hiring_signal_id: z.string().uuid(),
   company_id: z.string().uuid(),

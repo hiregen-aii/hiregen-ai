@@ -14,7 +14,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type":"module",
   "dependencies": {
     "zod": "^4.4.3"
   },
