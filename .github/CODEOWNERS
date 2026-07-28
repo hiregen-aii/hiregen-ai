@@ -31,24 +31,25 @@
 /backend/src/repositories/approval-queue.repo.ts @hiregen-aii/team-3-ai-platform
 
 # ===== Team 4 — Automation & Infrastructure =====
-/backend/src/queues/            @hiregen-aii/team-4-automation-infra
-/backend/src/webhooks/          @hiregen-aii/team-4-automation-infra
-/backend/Dockerfile             @hiregen-aii/team-4-automation-infra
-/frontend/Dockerfile            @hiregen-aii/team-4-automation-infra
-/infra/                         @hiregen-aii/team-4-automation-infra
-/n8n-workflows/04-approval-reminder.json        @hiregen-aii/team-4-automation-infra
-/n8n-workflows/05-followup-sequencer.json       @hiregen-aii/team-4-automation-infra
-/n8n-workflows/06-reply-sentiment-routing.json  @hiregen-aii/team-4-automation-infra
-/n8n-workflows/07-meeting-booking-sync.json     @hiregen-aii/team-4-automation-infra
-/n8n-workflows/08-crm-hygiene-sync.json         @hiregen-aii/team-4-automation-infra
-/n8n-workflows/09-daily-digest.json             @hiregen-aii/team-4-automation-infra
-/n8n-workflows/10-failure-watchdog.json         @hiregen-aii/team-4-automation-infra
+# NOTE: actual team slug is "team-name-team-4-automation-infra" (extra prefix kept as-is)
+/backend/src/queues/            @hiregen-aii/team-name-team-4-automation-infra
+/backend/src/webhooks/          @hiregen-aii/team-name-team-4-automation-infra
+/backend/Dockerfile             @hiregen-aii/team-name-team-4-automation-infra
+/frontend/Dockerfile            @hiregen-aii/team-name-team-4-automation-infra
+/infra/                         @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/04-approval-reminder.json        @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/05-followup-sequencer.json       @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/06-reply-sentiment-routing.json  @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/07-meeting-booking-sync.json     @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/08-crm-hygiene-sync.json         @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/09-daily-digest.json             @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/10-failure-watchdog.json         @hiregen-aii/team-name-team-4-automation-infra
 
 # ===== Team 5 — Product Experience =====
-/frontend/  @hiregen-aii/team-5-product-experience
+# NOTE: actual team slug is "team-name-team-5-product-experience" (extra prefix kept as-is)
+/frontend/  @hiregen-aii/team-name-team-5-product-experience
 
 # ===== Shared / Critical files — Deepak always reviews =====
-# Replace with your actual GitHub username
 /docs/api-contracts.md   @Deepenthusiastic23
 /docs/schema.sql         @Deepenthusiastic23
 /backend/migrations/     @Deepenthusiastic23
