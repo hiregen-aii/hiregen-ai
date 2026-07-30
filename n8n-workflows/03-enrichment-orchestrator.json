@@ -1,0 +1,77 @@
+{
+  "name": "03 - Enrichment Orchestrator (Research Pipeline)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "research-pipeline-trigger",
+        "httpMethod": "POST"
+      },
+      "id": "webhook-trigger",
+      "name": "Lead Received Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://PLACEHOLDER-AI-GATEWAY-URL/research",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "company_name",
+              "value": "={{ $json.body.company_name }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PLACEHOLDER-API-KEY"
+            }
+          ]
+        }
+      },
+      "id": "research-agent-call",
+      "name": "AI Gateway - Research Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { summary: $input.first().json.research_result };"
+      },
+      "id": "research-summary",
+      "name": "Build Research Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "research_data"
+      },
+      "id": "store-research",
+      "name": "Store Research Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Lead Received Trigger": {
+      "main": [[{ "node": "AI Gateway - Research Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Gateway - Research Agent": {
+      "main": [[{ "node": "Build Research Summary", "type": "main", "index": 0 }]]
+    },
+    "Build Research Summary": {
+      "main": [[{ "node": "Store Research Data", "type": "main", "index": 0 }]]
+    }
+  }
+}

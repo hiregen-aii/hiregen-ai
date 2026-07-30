@@ -1,0 +1,87 @@
+{
+"name": "04 - Lead Classification",
+"nodes": [
+    {
+    "parameters": {
+        "path": "lead-classification-trigger",
+        "httpMethod": "POST"
+    },
+    "id": "webhook-trigger",
+    "name": "Research Complete Trigger",
+"type": "n8n-nodes-base.webhook",
+"typeVersion": 1,
+    "position": [250, 300]
+    },
+    {
+"parameters": {
+        "url": "https://PLACEHOLDER-AI-GATEWAY-URL/classify",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+        "parameters": [
+            {
+"name": "research_summary",
+"value": "={{ $json.body.summary }}"
+            },
+            {
+            "name": "company_name",
+            "value": "={{ $json.body.company_name }}"
+            }
+        ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+        "parameters": [
+            {
+            "name": "Authorization",
+            "value": "Bearer PLACEHOLDER-API-KEY"
+            }
+        ]
+        }
+    },
+    "id": "classification-api-call",
+    "name": "Classification API",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "position": [500, 300]
+    },
+    {
+    "parameters": {
+        "jsCode": "return {\n  fit_score: $input.first().json.fit_score,\n  hiring_type: $input.first().json.hiring_type,\n  urgency: $input.first().json.urgency\n};"
+    },
+    "id": "extract-classification",
+    "name": "Extract Fit Score / Hiring Type / Urgency",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [750, 300]
+    },
+    {
+    "parameters": {
+        "conditions": {
+        "number": [
+            {
+"value1": "={{ $json.fit_score }}",
+"operation": "largerEqual",
+"value2": 70
+            }]
+        }
+    },
+"id": "decision-routing",
+"name": "Decision Routing",
+"type": "n8n-nodes-base.if",
+    "typeVersion": 1,
+"position": [1000, 300]
+    }
+],
+"connections": {
+    "Research Complete Trigger": {
+"main": [[{ "node": "Classification API", "type": "main", "index": 0 }]]
+    },
+    "Classification API": {
+"main": [[{ "node": "Extract Fit Score / Hiring Type / Urgency", "type": "main", "index": 0 }]]
+    },
+    "Extract Fit Score / Hiring Type / Urgency": {
+"main": [[{ "node": "Decision Routing", "type": "main", "index": 0 }]]
+    }
+}
+}
