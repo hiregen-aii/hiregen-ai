@@ -1,0 +1,300 @@
+{
+  "name": "Workflow6(Reply Sentiment & Routing)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reply-sentiment-routing",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        32
+      ],
+      "id": "2eadffd5-9d0b-44ef-9697-76ec3bca0a95",
+      "name": "Workflow 6 (Reply Sentiment & Routing)",
+      "webhookId": "0579c3aa-5bc8-483f-9215-59061fe8158e"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "76a69fbd-cfab-4f5c-a8ae-1a5f70697107",
+              "name": "reply_text",
+              "value": "={{ $json.reply_text  }}",
+              "type": "string"
+            },
+            {
+              "id": "74e86d16-a762-4879-b0f5-a9c0daa2dc73",
+              "name": "sender_email",
+              "value": "={{ $json.sender_email }}",
+              "type": "string"
+            },
+            {
+              "id": "6fea355d-a92b-408c-b696-b49c3ef5d69d",
+              "name": "received_text",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -32,
+        368
+      ],
+      "id": "b5dfdef7-775a-4e67-bf62-aa82c2282260",
+      "name": "AI Sentiment Classification(PLACEHOLDER)",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.sentiment }}",
+                    "rightValue": "positive",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c40c4f46-7761-445c-ab93-7d6e62fa0b47"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3b9c4047-7734-4444-9e5c-8100cd285336",
+                    "leftValue": "{{ $json.sentiment }}",
+                    "rightValue": "negative",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5f829ece-e02d-432b-8d61-cec803e5f102",
+                    "leftValue": "{{ $json.sentiment }}",
+                    "rightValue": "neutral",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        176
+      ],
+      "id": "cb9177b1-95aa-4ad3-8391-fd682b59fd66",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d817860a-83a2-47ee-8687-266926c4bbe8",
+              "name": "positive",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -208
+      ],
+      "id": "e9e3b14b-e566-45c1-a7df-f2d2e20c1118",
+      "name": "neutral"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        48
+      ],
+      "id": "2d960593-dc3b-4b8f-b870-b9b2fabdc307",
+      "name": "positive"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        736,
+        336
+      ],
+      "id": "a195755a-0409-4fea-9439-b5bdc644e1d3",
+      "name": "negative"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "91819e8e-3a36-485d-af55-3a24aa463389",
+              "name": "reply_text",
+              "value": "={{ $json.body.reply_text }}",
+              "type": "string"
+            },
+            {
+              "id": "ccb9c1ae-03e2-4f35-8a31-607004d2c096",
+              "name": "sender_email",
+              "value": "={{ $json.body.sender_email }}",
+              "type": "string"
+            },
+            {
+              "id": "d422542b-11f0-487d-9d94-637d4dba55d4",
+              "name": "received_text",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b3143ab3-5531-4c24-8b35-7b0214fd8aed",
+      "name": "Extract reply Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow 6 (Reply Sentiment & Routing)": {
+      "main": [
+        [
+          {
+            "node": "Extract reply Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Sentiment Classification(PLACEHOLDER)": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "neutral",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "positive",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "negative",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract reply Data": {
+      "main": [
+        [
+          {
+            "node": "AI Sentiment Classification(PLACEHOLDER)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e8bbdadf-0ecd-4897-8770-5d8cab957424",
+  "meta": {
+    "instanceId": "0f3e150465a4353bbbf8112b9ba95685a94f04c8ac52c2115c14649547155bc8"
+  },
+  "nodeGroups": [],
+  "id": "8OL4SUdsGhbtz7Nx",
+  "tags": []
+}
