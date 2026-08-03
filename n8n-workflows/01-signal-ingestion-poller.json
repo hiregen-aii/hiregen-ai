@@ -1,0 +1,204 @@
+{
+  "name": "01-hiring-signal-ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "signal-ingest",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "64e801e2-5001-4d8a-841b-578f0b9b48d8",
+      "name": "Webhook",
+      "webhookId": "96a618cc-a50d-4aa9-ba1a-c0ae362e2ebd"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "677197c3-c48f-4da9-9c14-9ba7d8d1916b",
+              "leftValue": "={{$json.body.company}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a1bcfa24-47bb-4755-a277-7156506c80a8",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2206969-6dd9-4232-bd55-6d10379fb822",
+              "name": "dedupeKey",
+              "value": "={{$json.body.company + \"-\" + $json.body.jobTitle + \"-\" + $json.body.location}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        416,
+        -96
+      ],
+      "id": "1fa791dd-d8e6-4999-bc7a-ac03bfb10208",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://postman-echo.com/post",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"company\": \"={{$json.body.company}}\",\n  \"jobTitle\": \"={{$json.body.jobTitle}}\",\n  \"location\": \"={{$json.body.location}}\",\n  \"source\": \"={{$json.body.source}}\",\n  \"dedupeKey\": \"={{$json.dedupeKey}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        -96
+      ],
+      "id": "9f8df524-9d00-45c2-866a-24a3ec9e2507",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "538e7a03-06d5-4a41-92e2-10030dd4d52f",
+              "name": "status",
+              "value": "Success",
+              "type": "string"
+            },
+            {
+              "id": "85b4926b-adec-425f-8066-64c5041169de",
+              "name": "workflow",
+              "value": "Workflow 1 - Hiring Signal Ingestion",
+              "type": "string"
+            },
+            {
+              "id": "e20442b4-73f0-4354-ad94-613a6c196453",
+              "name": "message",
+              "value": "Hiring Signal received successfully",
+              "type": "string"
+            },
+            {
+              "id": "6e2e12cd-50b6-46f7-ab6e-6b4c41a54c6d",
+              "name": "dedupeKey",
+              "value": "={{$json.data.dedupeKey}}",
+              "type": "string"
+            },
+            {
+              "id": "17cbe360-b6cb-4f63-b875-be0ca7d68b29",
+              "name": "timestamp",
+              "value": "={{$now}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "74a02c05-6906-4c0a-aa8f-c679a21e0f63",
+      "name": "Execution Log"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Execution Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1d6c94b4-3a8a-46a3-b54e-d14b9ea917e9",
+  "meta": {
+    "instanceId": "3cab1ddef0a0ece511dce92bfd66e865c77d09a78cb7493f90a9aa98106a5df1"
+  },
+  "nodeGroups": [],
+  "id": "Mu4XHPdqH2o90y3r",
+  "tags": []
+}

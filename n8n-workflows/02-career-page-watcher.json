@@ -1,0 +1,134 @@
+{
+  "name": "02-career-page-watcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "career-page-watcher",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a905d118-8698-45d3-8ba6-9ef8607fb737",
+      "name": "Webhook",
+      "webhookId": "499428f0-8264-4647-b646-3331b6910bd9"
+    },
+    {
+      "parameters": {
+        "url": "https://jsonplaceholder.typicode.com/users",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "965d1776-7a5b-4a7f-ba9d-f7a4b62e7b16",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f55f827-bba3-410f-b1f9-3494365912c5",
+              "name": "companyName",
+              "value": "={{$json.company.name}}",
+              "type": "string"
+            },
+            {
+              "id": "ed70bceb-87b0-4ea2-b677-af890abb1eed",
+              "name": "contactName",
+              "value": "={{$json.name}}",
+              "type": "string"
+            },
+            {
+              "id": "d4dfda4a-af3b-4fb9-adda-167d9f7d7b63",
+              "name": "email",
+              "value": "={{$json.email}}",
+              "type": "string"
+            },
+            {
+              "id": "7f898c0e-e429-4246-99fa-3ce071e1f335",
+              "name": "phone",
+              "value": "={{$json.phone}}",
+              "type": "string"
+            },
+            {
+              "id": "db3e895a-9d70-412c-b338-7501e36a029d",
+              "name": "website",
+              "value": "={{$json.website}}",
+              "type": "string"
+            },
+            {
+              "id": "b480227f-888a-4c85-a034-2009edc05e6b",
+              "name": "city",
+              "value": "={{$json.address.city}}",
+              "type": "string"
+            },
+            {
+              "id": "6efe4c8e-5af4-41e6-814d-39488cbef5d8",
+              "name": "enrichedAt",
+              "value": "={{$now}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        416,
+        0
+      ],
+      "id": "e9d4f86d-f729-4e9c-a0a7-c2ecd2641b75",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5add3193-6243-4f56-8b48-cf0e6283598a",
+  "meta": {
+    "instanceId": "3cab1ddef0a0ece511dce92bfd66e865c77d09a78cb7493f90a9aa98106a5df1"
+  },
+  "nodeGroups": [],
+  "id": "KVuF2MorSTgWVC0v",
+  "tags": []
+}
