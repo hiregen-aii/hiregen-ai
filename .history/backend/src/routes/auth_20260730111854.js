@@ -1,9 +1,5 @@
 const { authLimit } = require('../middleware/rateLimit')
-const {
-  loginHandler,
-  refreshHandler,
-  logoutHandler
-} = require('../controllers/auth.controller')
+const { loginHandler, refreshHandler, logoutHandler } = require('../controllers/auth.controller')
 
 module.exports = async function authRoutes(fastify) {
   fastify.post(

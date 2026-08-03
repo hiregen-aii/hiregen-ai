@@ -56,10 +56,34 @@ const deleteCompany = async (id) => {
   await pool.query('DELETE FROM companies WHERE id = $1', [id])
 }
 
+// Find company by name
+const getCompanyByName = async (name) => {
+  const result = await pool.query(
+    `SELECT * FROM companies
+     WHERE LOWER(name) = LOWER($1)`,
+    [name]
+  );
+
+  return result.rows[0];
+};
+
+// Find company by domain
+const getCompanyByDomain = async (domain) => {
+  const result = await pool.query(
+    `SELECT * FROM companies
+     WHERE LOWER(domain) = LOWER($1)`,
+    [domain]
+  );
+
+  return result.rows[0];
+};
+
 module.exports = {
   getAllCompanies,
   getCompanyById,
   createCompany,
   updateCompany,
-  deleteCompany
-}
+  deleteCompany,
+  getCompanyByName,
+  getCompanyByDomain
+};

@@ -37,30 +37,6 @@ const createContact = async (companyId, fullName, title, email, linkedinUrl, ver
 
   return result.rows[0]
 }
-// Update contact
-const updateContact = async (
-  id,
-  fullName,
-  title,
-  email,
-  linkedinUrl,
-  verified
-) => {
-  const result = await pool.query(
-    `UPDATE contacts
-     SET
-       full_name = $2,
-       title = $3,
-       email = $4,
-       linkedin_url = $5,
-       verified = $6
-     WHERE id = $1
-     RETURNING *`,
-    [id, fullName, title, email, linkedinUrl, verified]
-  )
-
-  return result.rows[0]
-}
 
 // Delete contact
 const deleteContact = async (id) => {
@@ -72,6 +48,5 @@ module.exports = {
   getContactById,
   getContactsByCompany,
   createContact,
-  updateContact,
   deleteContact
 }

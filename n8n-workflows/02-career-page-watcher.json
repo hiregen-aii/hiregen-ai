@@ -1,0 +1,196 @@
+{
+  "name": "02 - Career Page Watcher",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Career Page Watcher\n\n**Objective:** Simulate monitoring company career pages for new job postings.\n\n**Owner:** Team 2 - Hiring Intelligence\n\nRuns once per day, generates mock job data for a fixed list of tracked companies (Google, Microsoft, Amazon, IBM, Adobe), and sends one signal per company to the same backend ingest webhook used by the Signal Ingestion Poller.\n\nWhen real career-page scraping is added later, this is where the HTML Extract + diff-against-last-snapshot logic (SRS Workflow 2) will replace the mock generator - the rest of the pipeline (POST + error handling) stays the same.",
+        "height": 320,
+        "width": 400
+      },
+      "id": "sticky-overview-2",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-2",
+      "name": "Schedule Trigger (Daily 6 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate mock \"career page\" job listings for each tracked company.\n// Each company produces one item so downstream nodes process them independently\n// (via Split In Batches behaviour, since Code node returning multiple items\n// automatically fans them out one-by-one to the next node).\n\nconst trackedCompanies = [\n  { name: 'Google', domain: 'google.com' },\n  { name: 'Microsoft', domain: 'microsoft.com' },\n  { name: 'Amazon', domain: 'amazon.com' },\n  { name: 'IBM', domain: 'ibm.com' },\n  { name: 'Adobe', domain: 'adobe.com' }\n];\n\nconst mockRolesByCompany = {\n  'google.com': ['Software Engineer Intern', 'Cloud Solutions Architect'],\n  'microsoft.com': ['Product Manager', 'Azure Support Engineer'],\n  'amazon.com': ['Warehouse Operations Associate', 'SDE II'],\n  'ibm.com': ['Consultant - AI Practice', 'Campus Hire - Data Engineer'],\n  'adobe.com': ['UX Designer', 'Marketing Analyst Intern']\n};\n\nconst hiringTypes = ['INTERN', 'FULL_TIME', 'CONTRACT', 'BULK_HIRING', 'CAMPUS_DRIVE'];\n\nfunction simpleHash(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) {\n    hash = (hash << 5) - hash + str.charCodeAt(i);\n    hash |= 0;\n  }\n  return Math.abs(hash).toString(16);\n}\n\nconst items = [];\n\nfor (const company of trackedCompanies) {\n  const roles = mockRolesByCompany[company.domain];\n  const roleTitle = roles[Math.floor(Math.random() * roles.length)];\n  const hiringType = hiringTypes[Math.floor(Math.random() * hiringTypes.length)];\n  const sourceUrl = `https://careers.${company.domain}/jobs/${simpleHash(roleTitle + company.domain)}`;\n  const dedupeKey = simpleHash(`${company.domain}|${roleTitle}|${sourceUrl}`);\n\n  items.push({\n    json: {\n      company: {\n        name: company.name,\n        domain: company.domain\n      },\n      source: 'career_page_watcher',\n      source_url: sourceUrl,\n      role_title: roleTitle,\n      hiring_type: hiringType,\n      dedupe_key: dedupeKey,\n      detected_at: new Date().toISOString(),\n      raw_payload: {\n        note: 'Mock career-page listing for development/testing.',\n        generated_by: 'n8n-career-page-watcher'\n      }\n    }\n  });\n}\n\nreturn items;"
+      },
+      "id": "generate-career-data-1",
+      "name": "Generate Company Career Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_BASE_URL || 'http://localhost:3000' }}/api/webhooks/signal-ingest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Source",
+              "value": "n8n-career-page-watcher"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "maxTries": 2,
+            "waitBetweenTries": 2000
+          }
+        }
+      },
+      "id": "http-post-2",
+      "name": "POST to Signal Ingest Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 420],
+      "onError": "continueErrorOutput",
+      "notes": "Runs once per generated company item (5 requests per execution). Same endpoint as the Signal Ingestion Poller - the backend treats both sources identically, distinguished only by the `source` field."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-error-2",
+      "name": "Did Request Fail?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [980, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $json.error || 'Unknown error';\nconsole.error('[Career Page Watcher] Failed to send signal to backend:', error);\n\nreturn [{\n  json: {\n    status: 'FAILED',\n    workflow: 'career-page-watcher',\n    error,\n    failed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "error-handler-2",
+      "name": "Handle Ingestion Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1220, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    status: 'SUCCESS',\n    workflow: 'career-page-watcher',\n    sent_at: new Date().toISOString(),\n    response: $json\n  }\n}];"
+      },
+      "id": "success-log-2",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1220, 500]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Daily 6 AM)": {
+      "main": [
+        [
+          {
+            "node": "Generate Company Career Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Company Career Data": {
+      "main": [
+        [
+          {
+            "node": "POST to Signal Ingest Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST to Signal Ingest Webhook": {
+      "main": [
+        [
+          {
+            "node": "Did Request Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Did Request Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Request Fail?": {
+      "main": [
+        [
+          {
+            "node": "Handle Ingestion Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -21,25 +21,20 @@ fastify.register(require('@fastify/cors'), {
 
 fastify.register(require('@fastify/helmet'))
 fastify.register(require('@fastify/rate-limit'), generalLimit)
-
 fastify.register(require('./routes/auth'))
 fastify.register(require('./routes/admin'))
-
-// ✅ Contacts Routes
-fastify.register(require('./routes/contacts.routes'))
-
 fastify.register(
-  require('./routes/hiring-signals.routes'),
-  {
-    prefix: '/api/hiring-signals'
-  }
-)
+    require("./routes/hiring-signals.routes"),
+    {
+        prefix: "/api/hiring-signals"
+    }
+);
 
-const webhookRoutes = require('./routes/webhookRoutes')
+const webhookRoutes = require("./routes/webhookRoutes");
 
 fastify.register(webhookRoutes, {
-  prefix: '/api/webhooks'
-})
+    prefix: "/api/webhooks",
+});
 
 // health route
 fastify.get('/health', async (request, reply) => {
@@ -61,17 +56,16 @@ fastify.setErrorHandler((err, request, reply) => {
   if (err.isOperational) {
     return reply.code(err.statusCode).send(errResponse(err.message, request.id))
   }
-
+  
   if (err.validation || err.statusCode === 400) {
     return reply.code(400).send(errResponse(err.message, request.id))
   }
 
   // security: hide internal error details in production
   request.log.error(err)
-  const clientMessage =
-    env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message
+  const clientMessage = env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message
 
   return reply.code(500).send(errResponse(clientMessage, request.id))
 })
@@ -86,13 +80,7 @@ async function seedAdminUser() {
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123'
   const passwordHash = await bcrypt.hash(adminPassword, 10)
 
-  await upsertAdminUser(
-    adminEmail,
-    passwordHash,
-    'System Admin',
-    'ADMIN'
-  )
-
+  await upsertAdminUser(adminEmail, passwordHash, 'System Admin', 'ADMIN')
   console.log(`[AUTH] Admin seed ensured for ${adminEmail}`)
 }
 
@@ -101,27 +89,24 @@ async function start() {
   try {
     await db.health()
     console.log('[DB] Connected')
-
     await seedAdminUser()
 
     await fastify.listen({
       port: parseInt(env.PORT, 10),
       host: '127.0.0.1'
     })
-
     console.log(`[SERVER] Port: ${env.PORT}`)
   } catch (err) {
-    console.error('========== STARTUP ERROR ==========')
-    console.error(err)
-    console.error('===================================')
-    process.exit(1)
-  }
+    console.error("========== STARTUP ERROR ==========");
+    console.error(err);
+    console.error("===================================");
+    process.exit(1);
+}
 }
 
 // shutdown
 const stop = async () => {
   console.log('[SHUTDOWN] Stopping')
-
   try {
     await fastify.close()
     await db.close()
@@ -136,5 +121,4 @@ process.on('SIGTERM', stop)
 process.on('SIGINT', stop)
 
 start()
-
 module.exports = fastify

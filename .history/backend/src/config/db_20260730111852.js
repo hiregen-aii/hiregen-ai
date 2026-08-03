@@ -1,11 +1,6 @@
 const env = require('./env')
 const { Pool } = require('pg')
 
-console.log('DATABASE_URL =', env.DATABASE_URL)
-console.log('DB_USER =', env.DB_USER)
-console.log('DB_PASSWORD =', env.DB_PASSWORD)
-console.log('DB_NAME =', env.DB_NAME)
-
 const poolConfig = env.DATABASE_URL
   ? { connectionString: env.DATABASE_URL }
   : {
@@ -22,11 +17,12 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000
 })
 
-// Log unexpected database errors
+// error
 pool.on('error', (err) => {
   console.error('[DB ERROR]', err.message)
 })
 
+// export
 module.exports = {
   query: (text, params) => pool.query(text, params),
   health: () => pool.query('SELECT 1'),

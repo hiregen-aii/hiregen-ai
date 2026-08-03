@@ -1,6 +1,6 @@
 const { verifyToken } = require('../middleware/authenticate')
 const { requireRole } = require('../middleware/authorize')
-const { adminProfileHandler } = require('../controllers/adminController')
+const { adminProfileHandler } = require('../controllers/admin.controller')
 
 module.exports = async function adminRoutes(fastify) {
   fastify.get(

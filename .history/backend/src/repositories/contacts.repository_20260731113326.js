@@ -72,6 +72,5 @@ module.exports = {
   getContactById,
   getContactsByCompany,
   createContact,
-  updateContact,
   deleteContact
 }

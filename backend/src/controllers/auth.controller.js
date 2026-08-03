@@ -1,5 +1,5 @@
 const { success, error } = require('../utils/response')
-const { login, refresh, logout } = require('../services/authService')
+const { login, refresh, logout } = require('../services/auth.service')
 
 async function loginHandler(request, reply) {
   try {
