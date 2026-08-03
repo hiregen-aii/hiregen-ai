@@ -1,0 +1,14 @@
+const { success, error } = require('../utils/response')
+const contactsService = require('../services/contacts.service')
+async function getAllContactsHandler(request, reply) {
+  try {
+    const contacts = await contactsService.getAllContacts()
+
+    return reply.code(200).send(success(contacts, request.id))
+  } catch (err) {
+    const statusCode = err.statusCode || 500
+    const message = err.message || 'Failed to get contacts'
+
+    return reply.code(statusCode).send(error(message, request.id))
+  }
+}

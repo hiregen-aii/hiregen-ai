@@ -1,0 +1,299 @@
+{
+  "name": "01 - Signal Ingestion Poller",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Signal Ingestion Poller\n\n**Objective:** Periodically fetch real hiring signals from a live public job API and push them to the backend ingest webhook.\n\n**Owner:** Team 2 - Hiring Intelligence\n\n**Job source (current):** Remotive public API (https://remotive.com/api/remote-jobs) - chosen because it requires no API key/signup, is publicly documented, and is ToS-compliant (SRS section 3.3 - no login-gated scraping).\n\n**Swapping sources later:** Once official access to LinkedIn Jobs API / Indeed Publisher API (SRS section 4) is set up, only the \"Fetch Real-Time Jobs\" node's URL/auth needs to change - everything downstream (normalize, dedupe, POST) stays the same.\n\n**Backend endpoint:** POST /api/webhooks/signal-ingest\n(placeholder: http://localhost:3000 - swap for real backend URL via the `BACKEND_BASE_URL` env var once backend is deployed)\n\n**Dedupe:** dedupe_key = hash(company_name + role_title + source_url). Company *domain* isn't known yet at this stage (that's the Enrichment Agent's job downstream per SRS section 8), so we key on company name instead of domain here.",
+        "height": 420,
+        "width": 420
+      },
+      "id": "sticky-overview",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-1",
+      "name": "Schedule Trigger (Every 15 min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 460],
+      "notes": "Polling interval should eventually be made configurable per source (see SRS Workflow 1). 15 min is the default for now."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://remotive.com/api/remote-jobs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "category",
+              "value": "software-dev"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "maxTries": 2,
+            "waitBetweenTries": 2000
+          }
+        }
+      },
+      "id": "fetch-jobs-1",
+      "name": "Fetch Real-Time Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 460],
+      "onError": "continueErrorOutput",
+      "notes": "No auth required for Remotive's public endpoint. `category` narrows results to software/dev roles - remove or change this param to widen/narrow the search. Swap this node's URL for LinkedIn Jobs API / Indeed Publisher API once official credentials are available."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-fetch-error-1",
+      "name": "Did Fetch Fail?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [740, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The job API request itself failed (network error, API down, rate limited, etc).\n// Log it clearly so it's visible in the execution log / eventual Failure Watchdog (SRS Workflow 10).\nconst error = $json.error || 'Unknown error';\nconsole.error('[Signal Ingestion Poller] Failed to fetch jobs from source API:', error);\n\nreturn [{\n  json: {\n    status: 'FAILED',\n    workflow: 'signal-ingestion-poller',\n    stage: 'fetch-jobs',\n    error,\n    failed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "error-handler-fetch-1",
+      "name": "Handle Fetch Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize the raw job API response into the hiring_signals shape used across\n// the pipeline (company, role_title, hiring_type, source, dedupe_key, raw_payload).\n// Written defensively: falls back gracefully if a field is missing or the API\n// response shape shifts slightly, instead of crashing the whole poll.\n\nconst body = $input.first().json;\nconst rawJobs = Array.isArray(body.jobs) ? body.jobs : [];\n\n// Cap how many postings we process per poll to keep each run lightweight.\n// (Remotive doesn't offer a documented `limit` query param, so we slice client-side.)\nconst MAX_JOBS_PER_POLL = 5;\nconst jobs = rawJobs.slice(0, MAX_JOBS_PER_POLL);\n\nif (jobs.length === 0) {\n  // No new jobs this poll - not an error, just nothing to send.\n  return [];\n}\n\n// Remotive job_type values -> our hiring_type enum (SRS section 9).\nfunction mapHiringType(jobType) {\n  const map = {\n    internship: 'INTERN',\n    full_time: 'FULL_TIME',\n    part_time: 'CONTRACT',\n    contract: 'CONTRACT',\n    freelance: 'CONTRACT'\n  };\n  return map[jobType] || 'FULL_TIME';\n}\n\nfunction simpleHash(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) {\n    hash = (hash << 5) - hash + str.charCodeAt(i);\n    hash |= 0;\n  }\n  return Math.abs(hash).toString(16);\n}\n\nconst items = [];\n\nfor (const job of jobs) {\n  const companyName = job.company_name || 'Unknown Company';\n  const roleTitle = job.title || 'Unspecified Role';\n  const sourceUrl = job.url || `https://remotive.com/job/${job.id || simpleHash(roleTitle)}`;\n  const hiringType = mapHiringType(job.job_type);\n\n  // Domain isn't provided by this source - Enrichment Agent resolves it later,\n  // so dedupe here keys on company name instead of domain.\n  const dedupeKey = simpleHash(`${companyName}|${roleTitle}|${sourceUrl}`);\n\n  items.push({\n    json: {\n      company: {\n        name: companyName,\n        domain: null\n      },\n      source: 'remotive_api',\n      source_url: sourceUrl,\n      role_title: roleTitle,\n      hiring_type: hiringType,\n      dedupe_key: dedupeKey,\n      detected_at: new Date().toISOString(),\n      raw_payload: {\n        remotive_id: job.id || null,\n        category: job.category || null,\n        candidate_required_location: job.candidate_required_location || null,\n        publication_date: job.publication_date || null,\n        salary: job.salary || null\n      }\n    }\n  });\n}\n\nreturn items;"
+      },
+      "id": "normalize-jobs-1",
+      "name": "Normalize Job Listings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_BASE_URL || 'http://localhost:3000' }}/api/webhooks/signal-ingest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Source",
+              "value": "n8n-signal-ingestion-poller"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "maxTries": 2,
+            "waitBetweenTries": 2000
+          }
+        }
+      },
+      "id": "http-post-1",
+      "name": "POST to Signal Ingest Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1220, 560],
+      "onError": "continueErrorOutput",
+      "notes": "Replace placeholder URL with the real backend once deployed, via BACKEND_BASE_URL environment variable. Auth header (HMAC signature per SRS section 14/18) should be added here once the backend's service-auth scheme is finalized. Runs once per normalized job item (up to MAX_JOBS_PER_POLL requests per execution)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-error-1",
+      "name": "Did Request Fail?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1460, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log ingestion failures so they show up in the n8n execution log and can be\n// picked up by Workflow 10 - Failure/Error Watchdog later.\nconst error = $json.error || 'Unknown error';\nconsole.error('[Signal Ingestion Poller] Failed to send hiring signal to backend:', error);\n\nreturn [{\n  json: {\n    status: 'FAILED',\n    workflow: 'signal-ingestion-poller',\n    stage: 'post-to-backend',\n    error,\n    failed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "error-handler-1",
+      "name": "Handle Ingestion Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Successful send - simple confirmation record for the execution log.\nreturn [{\n  json: {\n    status: 'SUCCESS',\n    workflow: 'signal-ingestion-poller',\n    sent_at: new Date().toISOString(),\n    response: $json\n  }\n}];"
+      },
+      "id": "success-log-1",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 660]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Every 15 min)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Real-Time Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Real-Time Jobs": {
+      "main": [
+        [
+          {
+            "node": "Did Fetch Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Did Fetch Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Fetch Fail?": {
+      "main": [
+        [
+          {
+            "node": "Handle Fetch Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Job Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Job Listings": {
+      "main": [
+        [
+          {
+            "node": "POST to Signal Ingest Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST to Signal Ingest Webhook": {
+      "main": [
+        [
+          {
+            "node": "Did Request Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Did Request Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Request Fail?": {
+      "main": [
+        [
+          {
+            "node": "Handle Ingestion Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
