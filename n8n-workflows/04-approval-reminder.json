@@ -2,26 +2,44 @@
 "name": "04 - Lead Classification",
 "nodes": [
     {
-    "parameters": {
-        "path": "lead-classification-trigger",
-        "httpMethod": "POST"
-    },
+    "parameters": {},
     "id": "webhook-trigger",
     "name": "Research Complete Trigger",
-"type": "n8n-nodes-base.webhook",
-"typeVersion": 1,
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 1,
     "position": [250, 300]
     },
     {
-"parameters": {
-        "url": "https://PLACEHOLDER-AI-GATEWAY-URL/classify",
+    "parameters": {
+        "conditions": {
+        "string": [
+            {
+            "value1": "={{ $json.body.summary }}",
+            "operation": "isNotEmpty"
+            },
+            {
+            "value1": "={{ $json.body.company_name }}",
+            "operation": "isNotEmpty"
+            }
+        ]
+        }
+    },
+    "id": "validate-input",
+    "name": "Validate Required Fields",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 1,
+    "position": [450, 300]
+    },
+    {
+    "parameters": {
+        "url": "https://mock-ai-gateway.example.com/classify",
         "method": "POST",
         "sendBody": true,
         "bodyParameters": {
         "parameters": [
             {
-"name": "research_summary",
-"value": "={{ $json.body.summary }}"
+            "name": "research_summary",
+            "value": "={{ $json.body.summary }}"
             },
             {
             "name": "company_name",
@@ -43,7 +61,24 @@
     "name": "Classification API",
     "type": "n8n-nodes-base.httpRequest",
     "typeVersion": 4,
-    "position": [500, 300]
+    "position": [650, 260]
+    },
+    {
+    "parameters": {
+        "conditions": {
+        "string": [
+            {
+            "value1": "={{ $json.fit_score }}",
+            "operation": "isNotEmpty"
+            }
+        ]
+        }
+    },
+    "id": "validate-response",
+    "name": "Validate API Response Not Empty",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 1,
+    "position": [850, 260]
     },
     {
     "parameters": {
@@ -53,35 +88,68 @@
     "name": "Extract Fit Score / Hiring Type / Urgency",
     "type": "n8n-nodes-base.code",
     "typeVersion": 2,
-    "position": [750, 300]
+    "position": [1050, 220]
     },
     {
     "parameters": {
         "conditions": {
         "number": [
             {
-"value1": "={{ $json.fit_score }}",
-"operation": "largerEqual",
-"value2": 70
-            }]
+            "value1": "={{ $json.fit_score }}",
+            "operation": "largerEqual",
+            "value2": 70
+            }
+        ]
         }
     },
-"id": "decision-routing",
-"name": "Decision Routing",
-"type": "n8n-nodes-base.if",
+    "id": "decision-routing",
+    "name": "Decision Routing",
+    "type": "n8n-nodes-base.if",
     "typeVersion": 1,
-"position": [1000, 300]
+    "position": [1250, 220]
+    },
+    {
+    "parameters": {
+        "jsCode": "return { error: 'Missing required fields: summary or company_name' };"
+    },
+    "id": "input-error",
+    "name": "Input Validation Failed",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [650, 420]
+    },
+    {
+    "parameters": {
+        "jsCode": "return { error: 'Classification API returned empty response' };"
+    },
+    "id": "response-error",
+    "name": "Empty Response Error",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [850, 420]
     }
 ],
 "connections": {
     "Research Complete Trigger": {
-"main": [[{ "node": "Classification API", "type": "main", "index": 0 }]]
+    "main": [[{ "node": "Validate Required Fields", "type": "main", "index": 0 }]]
+    },
+    "Validate Required Fields": {
+    "main": [
+        [{ "node": "Classification API", "type": "main", "index": 0 }],
+        [{ "node": "Input Validation Failed", "type": "main", "index": 0 }]
+    ]
     },
     "Classification API": {
-"main": [[{ "node": "Extract Fit Score / Hiring Type / Urgency", "type": "main", "index": 0 }]]
+    "main": [[{ "node": "Validate API Response Not Empty", "type": "main", "index": 0 }]]
+    },
+    "Validate API Response Not Empty": {
+    "main": [
+        [{ "node": "Extract Fit Score / Hiring Type / Urgency", "type": "main", "index": 0 }],
+        [{ "node": "Empty Response Error", "type": "main", "index": 0 }]
+    ]
     },
     "Extract Fit Score / Hiring Type / Urgency": {
-"main": [[{ "node": "Decision Routing", "type": "main", "index": 0 }]]
+    "main": [[{ "node": "Decision Routing", "type": "main", "index": 0 }]]
     }
 }
 }
