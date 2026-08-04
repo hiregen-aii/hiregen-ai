@@ -1,16 +1,17 @@
 {
-  "name": "02-career-page-watcher",
+  "name": "02-company-contact-enrichment",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "career-page-watcher",
+        "path": "company-enrichment",
+        "responseMode": "responseNode",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        0,
+        -288,
         0
       ],
       "id": "a905d118-8698-45d3-8ba6-9ef8607fb737",
@@ -25,7 +26,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        208,
+        -80,
         0
       ],
       "id": "965d1776-7a5b-4a7f-ba9d-f7a4b62e7b16",
@@ -86,11 +87,99 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        416,
-        0
+        480,
+        -16
       ],
       "id": "e9d4f86d-f729-4e9c-a0a7-c2ecd2641b75",
       "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2e7532ea-cfc2-415f-94a0-a21ab5c837fb",
+              "leftValue": "={{$json.name}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "a46084fd-aceb-4058-9978-dabf33efb92e",
+              "leftValue": "={{$json.email}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "8fa62213-7825-4dff-b9e3-fbb7ea89fa28",
+              "leftValue": "={{$json.company.name}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        160,
+        0
+      ],
+      "id": "bcbc3057-0000-4f20-a5e3-61ef065727a9",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"message\": \"Invalid or incomplete API response\",\n  \"error\": \"Required fields are missing\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        480,
+        128
+      ],
+      "id": "20a88b39-55ad-4a3a-89d5-633786bd758c",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n{\n  success: true,\n  message: \"Company contact enriched successfully\",\n  data: $json\n}\n}}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        688,
+        -16
+      ],
+      "id": "cef6598a-5e91-42fa-981c-8999526ded8d",
+      "name": "Respond to Webhook1"
     }
   ],
   "pinData": {},
@@ -110,7 +199,36 @@
       "main": [
         [
           {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
             "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
             "type": "main",
             "index": 0
           }
@@ -124,7 +242,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "5add3193-6243-4f56-8b48-cf0e6283598a",
+  "versionId": "ce864ecd-e7a4-415a-8e28-188e6cc1979b",
   "meta": {
     "instanceId": "3cab1ddef0a0ece511dce92bfd66e865c77d09a78cb7493f90a9aa98106a5df1"
   },

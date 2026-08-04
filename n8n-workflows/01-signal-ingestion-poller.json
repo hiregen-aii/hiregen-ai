@@ -5,12 +5,13 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "signal-ingest",
+        "responseMode": "responseNode",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        0,
+        -208,
         0
       ],
       "id": "64e801e2-5001-4d8a-841b-578f0b9b48d8",
@@ -36,6 +37,36 @@
                 "operation": "exists",
                 "singleValue": true
               }
+            },
+            {
+              "id": "d514eb25-f76f-42fe-8e68-c6d37fd83401",
+              "leftValue": "={{$json.body.jobTitle}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "9752a00c-3f8f-4a9d-a73b-9be9f31fa81e",
+              "leftValue": "={{$json.body.location}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "fbb486d8-34e2-474b-a3a0-ce7ec9ec1e26",
+              "leftValue": "={{$json.body.source}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -45,7 +76,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        208,
+        48,
         0
       ],
       "id": "a1bcfa24-47bb-4755-a277-7156506c80a8",
@@ -69,8 +100,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        416,
-        -96
+        288,
+        -80
       ],
       "id": "1fa791dd-d8e6-4999-bc7a-ac03bfb10208",
       "name": "Edit Fields"
@@ -87,8 +118,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        624,
-        -96
+        976,
+        -64
       ],
       "id": "9f8df524-9d00-45c2-866a-24a3ec9e2507",
       "name": "HTTP Request"
@@ -134,11 +165,80 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        832,
-        -96
+        1344,
+        -64
       ],
       "id": "74a02c05-6906-4c0a-aa8f-c679a21e0f63",
       "name": "Execution Log"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"error\",\n  \"message\": \"Missing required fields\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        288,
+        112
+      ],
+      "id": "e88eec04-3712-438c-915a-f6758581de1f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e91970e8-22fd-4a06-8165-901c61762747",
+              "leftValue": "={{$json.isDuplicate}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        -80
+      ],
+      "id": "71f5494b-23e5-4cb3-bbd9-c4fd5e49b362",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"message\": \"Duplicate signal already exists\",\n  \"duplicate\": true\n}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        -176
+      ],
+      "id": "54031044-53d0-42e2-b7b0-b6decdeb8e1a",
+      "name": "Respond to Webhook1"
     }
   ],
   "pinData": {},
@@ -162,6 +262,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -169,7 +276,7 @@
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "If1",
             "type": "main",
             "index": 0
           }
@@ -186,6 +293,24 @@
           }
         ]
       ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -194,7 +319,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "1d6c94b4-3a8a-46a3-b54e-d14b9ea917e9",
+  "versionId": "21886328-c096-4b2c-9e4e-d58984b60732",
   "meta": {
     "instanceId": "3cab1ddef0a0ece511dce92bfd66e865c77d09a78cb7493f90a9aa98106a5df1"
   },
