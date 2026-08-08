@@ -14,8 +14,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type":"module",
+  "type": "module",
   "dependencies": {
+    "bullmq": "^6.0.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {

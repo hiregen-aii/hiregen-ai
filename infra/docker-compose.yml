@@ -1,4 +1,222 @@
-# Team 4 (4.4 DevOps) owns this file
-version: "3.9"
+# docker-compose.yml - HireGen AI Monorepo Service Orchestration
+
 services:
-  # backend, postgres, redis, n8n go here
+  # -------------------------------------------------------------
+  # 1. Database Layer (Postgres)
+  # -------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: hiregen-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-hiregen}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hiregen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # -------------------------------------------------------------
+  # 2. Cache & Queue Layer (Redis)
+  # -------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: hiregen-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-devpassword}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-devpassword}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------
+  # 3. Application Backend (Node JS)
+  # -------------------------------------------------------------
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: hiregen-backend
+    restart: unless-stopped
+    environment:
+      - PORT=4000
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-hiregen}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-devpassword}
+      - N8N_WEBHOOK_API_KEY=${N8N_WEBHOOK_API_KEY}
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # -------------------------------------------------------------
+  # 4. n8n Orchestrator Layer (Extended n8n Image)
+  # -------------------------------------------------------------
+  n8n:
+    build:
+      context: ..
+      dockerfile: docker/n8n.Dockerfile
+    container_name: hiregen-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_PORT=5678
+      - BACKEND_BASE_URL=http://backend:4000
+      - N8N_WEBHOOK_API_KEY=${N8N_WEBHOOK_API_KEY}
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # -------------------------------------------------------------
+  # 5. Frontend Presentation Layer (Vite + Nginx)
+  # -------------------------------------------------------------
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        APP_DIR: frontend
+    container_name: hiregen-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+
+  # -------------------------------------------------------------
+  # 6. API Gateway / Reverse Proxy (Nginx)
+  # -------------------------------------------------------------
+  nginx:
+    build:
+      context: ..
+      dockerfile: docker/nginx-proxy.Dockerfile
+    container_name: hiregen-nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # -------------------------------------------------------------
+  # 7. Centralized Monitoring Services (Module 4.5)
+  # -------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: hiregen-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - ./monitoring/recording.rules.yml:/etc/prometheus/recording.rules.yml
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: hiregen-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: hiregen-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.58.0-alpine
+    container_name: hiregen-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-devpassword}
+    depends_on:
+      - redis
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: hiregen-postgres-exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-hiregen}?sslmode=disable
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    name: hiregen_postgres_data
+  redis_data:
+    name: hiregen_redis_data
+  n8n_data:
+    name: hiregen_n8n_data
+  prometheus_data:
+    name: hiregen_prometheus_data
+  grafana_data:
+    name: hiregen_grafana_data
+  alertmanager_data:
+    name: hiregen_alertmanager_data

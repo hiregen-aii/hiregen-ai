@@ -1,0 +1,271 @@
+{
+  "name": "07 - Follow-up Sequencer",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Workflow 7: Follow-up Sequencer (SKELETON / PLACEHOLDER)\n\n**Objective:** Orchestrate multi-step follow-up sequences with wait times, checking for replies, and exiting on response.\n\n**Owner:** Team 4 - Automation & Infrastructure (Module 4.1)\n\n**Trigger:** Webhook from backend when outreach is initiated.\n\n**Flow:**\n1. Wait (3 days or configurable based on hiring_type)\n2. Check backend for replies (GET /api/v1/leads/:id)\n3. Exit if lead has replied/booked meeting\n4. Loop: generate next email draft (via placeholder POST /api/v1/personalization - NOT implemented), and wait again.\n\n*Note: Approval queue and email dispatch steps are not implemented in this skeleton.*",
+        "height": 380,
+        "width": 380
+      },
+      "id": "sticky-overview-7",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "followup-sequence-start",
+        "options": {}
+      },
+      "id": "webhook-trigger-7",
+      "name": "Start Follow-up Sequence",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.wait_days || 3 }}",
+        "unit": "days"
+      },
+      "id": "wait-node-7",
+      "name": "Wait for Sequence Delay",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.BACKEND_BASE_URL || 'http://localhost:3000' }}/api/v1/leads/{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PLACEHOLDER"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-lead-status-7",
+      "name": "Check Lead Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.stage }}",
+              "rightValue": "REPLIED",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ $json.stage }}",
+              "rightValue": "MEETING_BOOKED",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      },
+      "id": "if-replied-7",
+      "name": "Has Replied or Booked?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    lead_id: $json.id,\n    status: 'EXIT_SUCCESS',\n    reason: 'Lead replied or booked a meeting. Exiting sequence.',\n    stage: $json.stage,\n    exited_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "exit-success-7",
+      "name": "Exit Sequence (Success)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.current_step || 1 }}",
+              "rightValue": "={{ $json.max_steps || 3 }}",
+              "operator": {
+                "type": "number",
+                "operation": "largerEqual",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-max-steps-7",
+      "name": "Exceeded Max Steps?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    lead_id: $json.id,\n    status: 'EXIT_MAX_STEPS',\n    reason: 'Reached maximum number of follow-up steps.',\n    exited_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "exit-max-steps-7",
+      "name": "Exit Sequence (Max Steps)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_BASE_URL || 'http://localhost:3000' }}/api/v1/personalization",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"leadId\": \"={{ $json.id }}\",\n  \"companyId\": \"={{ $json.company_id }}\",\n  \"hiringType\": \"={{ $json.hiring_type }}\",\n  \"step\": \"={{ ($json.current_step || 1) + 1 }}\"\n}",
+        "options": {}
+      },
+      "id": "generate-next-draft-7",
+      "name": "Generate Next Follow-up Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Increment step count and prepare for next iteration\nconst result = $input.first().json;\nreturn [{\n  json: {\n    lead_id: result.leadId || $node['check-lead-status-7'].json.id,\n    current_step: ($node['check-lead-status-7'].json.current_step || 1) + 1,\n    max_steps: $node['check-lead-status-7'].json.max_steps || 3,\n    wait_days: $node['check-lead-status-7'].json.wait_days || 3\n  }\n}];"
+      },
+      "id": "increment-step-7",
+      "name": "Increment Step Count",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1460, 500]
+    }
+  ],
+  "connections": {
+    "Start Follow-up Sequence": {
+      "main": [
+        [
+          {
+            "node": "Wait for Sequence Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Sequence Delay": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Status": {
+      "main": [
+        [
+          {
+            "node": "Has Replied or Booked?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Replied or Booked?": {
+      "main": [
+        [
+          {
+            "node": "Exit Sequence (Success)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Exceeded Max Steps?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exceeded Max Steps?": {
+      "main": [
+        [
+          {
+            "node": "Exit Sequence (Max Steps)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Next Follow-up Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Next Follow-up Draft": {
+      "main": [
+        [
+          {
+            "node": "Increment Step Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Step Count": {
+      "main": [
+        [
+          {
+            "node": "Wait for Sequence Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

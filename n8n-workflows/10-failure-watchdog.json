@@ -1,0 +1,167 @@
+{
+  "name": "10 - Failure Watchdog & Analytics Logging",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Workflow 10: Failure Watchdog (SKELETON / MOCKED)\n\n**Objective:** Centrally catch execution failures from other workflows, log them to the backend audit log, and alert via Slack on critical errors.\n\n**Owner:** Team 4 - Automation & Infrastructure (Module 4.1)\n\n**Trigger:** Webhook from other workflows' error handlers.\n\n**Flow:**\n1. Webhook trigger receives error/event payload\n2. Log to database via POST /api/v1/admin/logs (MOCKED / Speculative endpoint - does NOT exist in backend contracts)\n3. Check if error severity is CRITICAL\n4. If CRITICAL, send Slack alert to engineering channel (MOCKED / Requires Slack Integration Setup)\n\n*Note: Deepak/Team 4 must replace the POST /api/v1/admin/logs call with enqueuing into the TypeScript auditLogQueue, or implement the speculative HTTP endpoint on the backend.*",
+        "height": 380,
+        "width": 380
+      },
+      "id": "sticky-overview-10",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "failure-watchdog-trigger",
+        "options": {}
+      },
+      "id": "webhook-trigger-10",
+      "name": "Central Error Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_BASE_URL || 'http://localhost:3000' }}/api/v1/admin/logs",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflow\": \"={{ $json.workflow || 'unknown' }}\",\n  \"stage\": \"={{ $json.stage || 'unknown' }}\",\n  \"status\": \"={{ $json.status || 'FAILED' }}\",\n  \"error\": \"={{ $json.error || 'No error details provided' }}\",\n  \"timestamp\": \"={{ $json.failed_at || $json.timestamp || new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "post-audit-log-10",
+      "name": "Log to Backend Audit Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "CRITICAL",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-critical-10",
+      "name": "Is Critical Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mock Slack notification block for alert channel\nconsole.warn('[FAILURE WATCHDOG] CRITICAL ALERT:', $json.error);\nreturn [{\n  json: {\n    channel: '#hiring-alerts',\n    text: `🚨 *Critical Workflow Failure* 🚨\\n\\n*Workflow:* ${$node['post-audit-log-10'].json.workflow}\\n*Stage:* ${$node['post-audit-log-10'].json.stage}\\n*Error:* ${$node['post-audit-log-10'].json.error}\\n*Time:* ${$node['post-audit-log-10'].json.timestamp}`\n  }\n}];"
+      },
+      "id": "prepare-slack-10",
+      "name": "Prepare Slack Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "send-slack-alert-10",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    status: 'LOGGED',\n    message: 'Error logged. No notification sent for non-critical error.'\n  }\n}];"
+      },
+      "id": "log-only-10",
+      "name": "Log and End",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 400]
+    }
+  ],
+  "connections": {
+    "Central Error Receiver": {
+      "main": [
+        [
+          {
+            "node": "Log to Backend Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Backend Audit Log": {
+      "main": [
+        [
+          {
+            "node": "Is Critical Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Critical Error?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log and End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
