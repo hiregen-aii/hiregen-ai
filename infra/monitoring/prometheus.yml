@@ -6,6 +6,12 @@ rule_files:
   - alert.rules.yml
   - recording.rules.yml
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
 scrape_configs:
 
   - job_name: "prometheus"
@@ -14,7 +20,7 @@ scrape_configs:
 
   - job_name: "backend"
     static_configs:
-      - targets: ["backend:3000"]
+      - targets: ["backend:4000"]
 
   - job_name: "redis"
     static_configs:
