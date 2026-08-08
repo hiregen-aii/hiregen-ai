@@ -2,8 +2,12 @@
   "name": "hiregen-ai-backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node src/app.js",
     "test": "vitest",
     "test:integration": "vitest run tests/integration"
+  },
+  "dependencies": {
+    "fastify": "^5.11.3",
+    "pg": "^8.22.0"
   }
 }
