@@ -1,10 +1,4 @@
--- ==========================================================
--- Module: 4.3 Communication Service
--- File: 02_create_meetings.sql
--- Description:
--- Stores meeting details scheduled with leads.
--- Team 2 integration (lead_id foreign key) will be added later.
--- ==========================================================
+
 
 CREATE TABLE meetings (
 
@@ -50,27 +44,3 @@ CREATE TABLE meetings (
 
 );
 
--- ==========================================================
--- TODO
--- ==========================================================
--- 1. Add FOREIGN KEY (lead_id) REFERENCES leads(lead_id)
---    after Team 2 schema is finalized.
---
--- 2. Validate meeting integration with CRM/Calendar service.
---
--- 3. Add indexes after table creation.
--- ==========================================================
-
-| Column             | Purpose                                |
-| ------------------ | -------------------------------------- |
-| `meeting_id`       | Unique meeting ID                      |
-| `lead_id`          | References the lead (Team 2)           |
-| `meeting_title`    | Purpose of the meeting                 |
-| `meeting_date`     | Date of the meeting                    |
-| `meeting_time`     | Time of the meeting                    |
-| `meeting_mode`     | ONLINE or OFFLINE                      |
-| `meeting_link`     | Link for online meetings               |
-| `meeting_location` | Physical location for offline meetings |
-| `status`           | Current meeting status                 |
-| `notes`            | Additional remarks                     |
-| `created_at`       | Record creation timestamp              |
