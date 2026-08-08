@@ -1,5 +1,5 @@
 {
-  "name": "Workflow6(Reply Sentiment & Routing)",
+  "name": "06 - Reply Sentiment & Routing",
   "nodes": [
     {
       "parameters": {
@@ -10,8 +10,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -272,
-        32
+        -320,
+        -176
       ],
       "id": "2eadffd5-9d0b-44ef-9697-76ec3bca0a95",
       "name": "Workflow 6 (Reply Sentiment & Routing)",
@@ -22,32 +22,21 @@
         "assignments": {
           "assignments": [
             {
-              "id": "76a69fbd-cfab-4f5c-a8ae-1a5f70697107",
-              "name": "reply_text",
-              "value": "={{ $json.reply_text  }}",
-              "type": "string"
-            },
-            {
-              "id": "74e86d16-a762-4879-b0f5-a9c0daa2dc73",
-              "name": "sender_email",
-              "value": "={{ $json.sender_email }}",
-              "type": "string"
-            },
-            {
-              "id": "6fea355d-a92b-408c-b696-b49c3ef5d69d",
-              "name": "received_text",
-              "value": "={{ $now.toISO() }}",
+              "id": "11dabb29-1b44-4b42-a7a6-207dc1c60cd5",
+              "name": "sentiment",
+              "value": "neutral",
               "type": "string"
             }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
         -32,
-        368
+        336
       ],
       "id": "b5dfdef7-775a-4e67-bf62-aa82c2282260",
       "name": "AI Sentiment Classification(PLACEHOLDER)",
@@ -143,55 +132,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "d817860a-83a2-47ee-8687-266926c4bbe8",
-              "name": "positive",
-              "value": "",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        720,
-        -208
-      ],
-      "id": "e9e3b14b-e566-45c1-a7df-f2d2e20c1118",
-      "name": "neutral"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        720,
-        48
-      ],
-      "id": "2d960593-dc3b-4b8f-b870-b9b2fabdc307",
-      "name": "positive"
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        736,
-        336
-      ],
-      "id": "a195755a-0409-4fea-9439-b5bdc644e1d3",
-      "name": "negative"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
               "id": "91819e8e-3a36-485d-af55-3a24aa463389",
               "name": "reply_text",
               "value": "={{ $json.body.reply_text }}",
@@ -221,6 +161,55 @@
       ],
       "id": "b3143ab3-5531-4c24-8b35-7b0214fd8aed",
       "name": "Extract reply Data"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        -128
+      ],
+      "id": "bf40ed56-e656-4530-aeb5-eee336c437a1",
+      "name": "positive"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "71c6ec09-b607-44e6-b12c-bbee8c5ecacb",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        144
+      ],
+      "id": "9bb0c5a4-52db-4dc9-8aa1-0aedd0755c6d",
+      "name": "negative"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        352
+      ],
+      "id": "820d9d32-d987-4fa0-a052-e61ff0d625ca",
+      "name": "neutral"
     }
   ],
   "pinData": {},
@@ -251,13 +240,6 @@
       "main": [
         [
           {
-            "node": "neutral",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "positive",
             "type": "main",
             "index": 0
@@ -266,6 +248,13 @@
         [
           {
             "node": "negative",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "neutral",
             "type": "main",
             "index": 0
           }
@@ -290,7 +279,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "e8bbdadf-0ecd-4897-8770-5d8cab957424",
+  "versionId": "efea9553-fe41-48b6-82f2-c27cd0dd8758",
   "meta": {
     "instanceId": "0f3e150465a4353bbbf8112b9ba95685a94f04c8ac52c2115c14649547155bc8"
   },
