@@ -1,0 +1,314 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://postman-echo.com/post",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"workflowName\": \"{{ $json.workflowName }}\",\n  \"status\": \"{{ $json.status }}\",\n  \"executionTime\": {{ $json.executionTime }},\n  \"executedAt\": \"{{ $json.executedAt }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        384,
+        0
+      ],
+      "id": "5d7d3a49-fa96-435e-93d4-39825770382b",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1ff737b-1f9d-499e-8151-1e22233212c9",
+              "name": "workflowName",
+              "value": "Workflow 10 - Analytics & Logging",
+              "type": "string"
+            },
+            {
+              "id": "8736448c-0560-41d3-be41-f3d893115e8b",
+              "name": "status",
+              "value": "Success",
+              "type": "string"
+            },
+            {
+              "id": "dd73aa40-bc06-4a90-91c4-da3b9d9bd522",
+              "name": "executionTime",
+              "value": 125,
+              "type": "number"
+            },
+            {
+              "id": "92b8b9bc-9c03-425f-adb8-594d0199663d",
+              "name": "executedAt",
+              "value": "2026-07-31T22:00:00Z",
+              "type": "string"
+            },
+            {
+              "id": "f961679d-8fd2-4f3e-aa0a-f6ea847803ea",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a0ed37b2-a4ad-4ea3-a4e7-d629894e2b16",
+      "name": "Prepare Analytics Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "42ff251b-05bb-4194-8c3c-e137ffa62664",
+              "leftValue": "={{$json.data.status}}",
+              "rightValue": "Success",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        592,
+        0
+      ],
+      "id": "d6d6e533-b69b-41ff-b141-1f89b1c44438",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ddb6d934-1d4f-43ec-8553-5abfbb2fb755",
+              "name": "logMessage",
+              "value": "Workflow executed successfully",
+              "type": "string"
+            },
+            {
+              "id": "76af864c-cabc-4b18-ab60-c7b6b736ee51",
+              "name": "executionStatus",
+              "value": "SUCCESS",
+              "type": "string"
+            },
+            {
+              "id": "03c0643c-028c-433c-a8ee-c13c5c2000f8",
+              "name": "workflowName",
+              "value": "={{$json.workflowName}}",
+              "type": "string"
+            },
+            {
+              "id": "0fed1d91-b723-4e2f-95da-621baee71d74",
+              "name": "executionTime",
+              "value": "={{$json.executionTime}}",
+              "type": "string"
+            },
+            {
+              "id": "da0db42f-e151-48fc-b92e-b0e03fc7962c",
+              "name": "executedAt",
+              "value": "={{$json.executedAt}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        800,
+        -96
+      ],
+      "id": "784b87ea-269a-4da7-8f92-7b86946abf29",
+      "name": "Success Log"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "998cce63-08c2-4083-900a-984bebe40031",
+              "name": "logMessage",
+              "value": "Workflow execution failed",
+              "type": "string"
+            },
+            {
+              "id": "05a80639-0f53-4500-bc18-eab453b95d8e",
+              "name": "executionStatus",
+              "value": "FAILED",
+              "type": "string"
+            },
+            {
+              "id": "21ccae78-310c-4b90-9f9f-c75449ac5aa1",
+              "name": "workflowName",
+              "value": "={{$json.workflowName}}",
+              "type": "string"
+            },
+            {
+              "id": "a7c083a8-9432-4edc-9883-4c5dbcf13af4",
+              "name": "executionTime",
+              "value": "={{$json.executionTime}}",
+              "type": "string"
+            },
+            {
+              "id": "21e268d4-1640-4797-a797-71b7a93ba364",
+              "name": "executedAt",
+              "value": "={{$json.executedAt}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        800,
+        96
+      ],
+      "id": "f5d4c376-faf6-47ef-b90e-88fa394707b8",
+      "name": "Failure Log"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1008,
+        -96
+      ],
+      "id": "ed324571-c86f-47fa-b154-28079b4094a9",
+      "name": "Merge"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "96fa590b-3370-4dbf-a1ec-54d66549e758",
+      "name": "Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Prepare Analytics Data": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failure Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Log": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Log": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        []
+      ]
+    },
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Analytics Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1c157c4c-c451-4d2b-a99a-9a083760ad31",
+  "meta": {
+    "instanceId": "e7cfe53193295e8aaf375a364c8e53274088f967d8bcc65c396abe213e51f45a"
+  },
+  "nodeGroups": [],
+  "id": "AXARZkQUOmJWg0bd",
+  "tags": []
+}
