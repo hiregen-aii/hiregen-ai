@@ -1,0 +1,143 @@
+{
+  "name": "03 - Enrichment Orchestrator (Research Pipeline)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "research-pipeline-trigger",
+        "httpMethod": "POST"
+      },
+      "id": "webhook-trigger",
+      "name": "Lead Received Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.company_name }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-input",
+      "name": "Validate Required Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://mock-ai-gateway.example.com/research",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "company_name",
+              "value": "={{ $json.body.company_name }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PLACEHOLDER-API-KEY"
+            }
+          ]
+        }
+      },
+      "id": "research-agent-call",
+      "name": "AI Gateway - Research Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 260]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.research_result }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-response",
+      "name": "Validate API Response Not Empty",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 260]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { summary: $input.first().json.research_result };"
+      },
+      "id": "research-summary",
+      "name": "Build Research Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 220]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "research_data"
+      },
+      "id": "store-research",
+      "name": "Store Research Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1250, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { error: 'Missing required field: company_name' };"
+      },
+      "id": "input-error",
+      "name": "Input Validation Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "return { error: 'AI Gateway returned empty response' };"
+      },
+      "id": "response-error",
+      "name": "Empty Response Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 420]
+    }
+  ],
+  "connections": {
+    "Lead Received Trigger": {
+      "main": [[{ "node": "Validate Required Fields", "type": "main", "index": 0 }]]
+    },
+    "Validate Required Fields": {
+      "main": [
+        [{ "node": "AI Gateway - Research Agent", "type": "main", "index": 0 }],
+        [{ "node": "Input Validation Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI Gateway - Research Agent": {
+      "main": [[{ "node": "Validate API Response Not Empty", "type": "main", "index": 0 }]]
+    },
+    "Validate API Response Not Empty": {
+      "main": [
+        [{ "node": "Build Research Summary", "type": "main", "index": 0 }],
+        [{ "node": "Empty Response Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Research Summary": {
+      "main": [[{ "node": "Store Research Data", "type": "main", "index": 0 }]]
+    }
+  }
+}

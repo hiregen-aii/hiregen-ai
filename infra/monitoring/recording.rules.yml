@@ -1,0 +1,15 @@
+groups:
+  - name: monitoring-recording
+    rules:
+
+      - record: instance:up_count
+        expr: count(up)
+
+      - record: instance:up_ratio
+        expr: avg(up)
+
+      - record: job:http_requests:rate5m
+        expr: sum by (job) (rate(prometheus_http_requests_total[5m]))
+
+      - record: job:http_request_duration:avg
+        expr: sum by (job) (rate(prometheus_http_request_duration_seconds_sum[5m])) / sum by (job) (rate(prometheus_http_request_duration_seconds_count[5m]))
