@@ -118,7 +118,7 @@ async function start() {
 
     await fastify.listen({
       port: parseInt(env.PORT, 10),
-      host: '127.0.0.1'
+      host: process.env.HOST || '127.0.0.1'
     })
     console.log(`[SERVER] Port: ${env.PORT}`)
   } catch (err) {
