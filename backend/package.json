@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "build": "node -e \"console.log('No build step configured; service is ready for runtime startup.')\"",
     "migrate": "node scripts/run-migrations.js",
-    "test": "node --test tests/**/*.test.js",
+    "test": "node --test tests/*.test.js",
     "lint": "echo 'No linter configured yet'"
   },
   "dependencies": {
