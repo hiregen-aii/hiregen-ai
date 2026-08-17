@@ -1,4 +1,172 @@
-# Team 4 (4.4 DevOps) owns this file
-version: "3.9"
 services:
-  # backend, postgres, redis, n8n go here
+  postgres:
+    image: postgres:15-alpine
+    container_name: hiregen-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hiregen
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hiregen"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: hiregen-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: hiregen-backend
+    env_file:
+      - ../backend/.env
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: hiregen
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/hiregen
+      AI_GATEWAY_BASE_URL: http://ai-platform-service:3100
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-platform-service:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  ai-platform-service:
+    build:
+      context: ..
+      dockerfile: docker/ai-platform.Dockerfile
+    container_name: hiregen-ai-platform
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3100
+    ports:
+      - "3100:3100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:3100/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  n8n:
+    build:
+      context: ..
+      dockerfile: docker/n8n.Dockerfile
+    container_name: hiregen-n8n
+    environment:
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      NODE_ENV: production
+      N8N_WEBHOOK_API_KEY: ${N8N_WEBHOOK_API_KEY:-dev-api-key}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-dev-webhook-secret}
+      BACKEND_BASE_URL: http://backend:3000
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5678/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: hiregen-redis-exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: hiregen-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@postgres:5432/hiregen?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hiregen-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - ./monitoring/recording.rules.yml:/etc/prometheus/recording.rules.yml:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis-exporter:
+        condition: service_started
+      postgres-exporter:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hiregen-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  grafana_data:

@@ -6,6 +6,10 @@ const AppError = require('./utils/AppError')
 const { error: errResponse } = require('./utils/response')
 const { generalLimit } = require('./middleware/rateLimit')
 const { upsertAdminUser } = require('./repositories/user.repository')
+const client = require('prom-client')
+
+client.collectDefaultMetrics()
+
 
 // fastify config
 const fastify = require('fastify')({
@@ -73,6 +77,16 @@ fastify.get('/health', async (request, reply) => {
     })
   } catch (err) {
     throw new AppError('Database down', 500)
+  }
+})
+
+// metrics route
+fastify.get('/metrics', async (request, reply) => {
+  try {
+    reply.header('Content-Type', client.register.contentType)
+    return reply.send(await client.register.metrics())
+  } catch (err) {
+    reply.code(500).send(err)
   }
 })
 
