@@ -1,0 +1,109 @@
+{
+  "name": "Workflow 7 - Meeting Booking Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-booking-webhook",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "id": "booking-webhook-trigger",
+      "name": "Booking Webhook (Cal.com/Calendly)",
+      "webhookId": "meeting-booking-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "lead-id",
+              "name": "leadId",
+              "value": "={{ $json.body.metadata.leadId || $json.body.tracking.utm_source }}",
+              "type": "string"
+            },
+            {
+              "id": "meeting-time",
+              "name": "meetingTime",
+              "value": "={{ $json.body.startTime || $json.body.start_time }}",
+              "type": "string"
+            },
+            {
+              "id": "meeting-link",
+              "name": "meetingLink",
+              "value": "={{ $json.body.meetingUrl || $json.body.location }}",
+              "type": "string"
+            },
+            {
+              "id": "notes",
+              "name": "notes",
+              "value": "={{ $json.body.attendeeName ? ('Booked by ' + $json.body.attendeeName) : 'Booked via calendar tool' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 0],
+      "id": "parse-booking-payload",
+      "name": "Parse Booking Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BACKEND_BASE_URL }}/api/v1/webhooks/meeting-booked",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.N8N_WEBHOOK_API_KEY }}" },
+            { "name": "x-signature", "value": "={{ $env.N8N_WEBHOOK_SIGNATURE }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"leadId\": \"{{ $json.leadId }}\",\n  \"meetingTime\": \"{{ $json.meetingTime }}\",\n  \"meetingLink\": \"{{ $json.meetingLink }}\",\n  \"notes\": \"{{ $json.notes }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [448, 0],
+      "id": "post-meeting-to-backend",
+      "name": "POST /meetings + Update Lead Stage"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL_SALES }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \":calendar: *Meeting Booked*\\n*Lead:* {{ $json.leadId }}\\n*Time:* {{ $json.meetingTime }}\\n*Link:* {{ $json.meetingLink }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [672, 0],
+      "id": "slack-notify-owner-manager",
+      "name": "Slack Notify Owner + Manager"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Booking Webhook (Cal.com/Calendly)": {
+      "main": [[{ "node": "Parse Booking Payload", "type": "main", "index": 0 }]]
+    },
+    "Parse Booking Payload": {
+      "main": [[{ "node": "POST /meetings + Update Lead Stage", "type": "main", "index": 0 }]]
+    },
+    "POST /meetings + Update Lead Stage": {
+      "main": [[{ "node": "Slack Notify Owner + Manager", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "workflow-7-meeting-booking-sync" },
+  "tags": []
+}

@@ -1,0 +1,54 @@
+groups:
+  - name: monitoring-alerts
+    rules:
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service Down"
+          description: "One or more monitored services are unreachable."
+
+      - alert: HighLatency
+        expr: rate(prometheus_http_request_duration_seconds_sum[5m]) / rate(prometheus_http_request_duration_seconds_count[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Response Latency"
+          description: "Average response time is higher than expected over the last 5 minutes."
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus Down"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis Down"
+
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL Down"
+
+      - alert: RepeatedFailures
+        expr: sum_over_time((up == 0)[15m:]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service flapping"
+          description: "A service has gone down more than 3 times in the last 15 minutes."

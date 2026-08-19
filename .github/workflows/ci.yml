@@ -1,0 +1,84 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hiregen
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Main Backend: Install, Migrate, and Test
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run backend migrations
+        run: |
+          cd backend
+          npm run migrate
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/hiregen
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/hiregen
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: hiregen
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          JWT_SECRET: supersecretplaceholder32characterslong
+          REFRESH_SECRET: supersecretplaceholder32characterslongrefresh
+          PORT: 3000
+
+      # Team 3 AI Platform Service: Install, Build, and Test
+      - name: Install AI platform dependencies
+        run: |
+          cd ai-platform-service/backend
+          npm ci
+
+      - name: Build AI platform service
+        run: |
+          cd ai-platform-service/backend
+          npm run build
+
+      - name: Run AI platform tests
+        run: |
+          cd ai-platform-service/backend
+          npm test
+
+      # Build backend Docker image to ensure Dockerfile correctness
+      - name: Build backend Docker image
+        run: |
+          docker build -f docker/backend.Dockerfile .
