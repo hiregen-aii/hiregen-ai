@@ -6,6 +6,10 @@ const AppError = require('./utils/AppError')
 const { error: errResponse } = require('./utils/response')
 const { generalLimit } = require('./middleware/rateLimit')
 const { upsertAdminUser } = require('./repositories/user.repository')
+const client = require('prom-client')
+
+client.collectDefaultMetrics()
+
 
 // fastify config
 const fastify = require('fastify')({
@@ -76,6 +80,16 @@ fastify.get('/health', async (request, reply) => {
   }
 })
 
+// metrics route
+fastify.get('/metrics', async (request, reply) => {
+  try {
+    reply.header('Content-Type', client.register.contentType)
+    return reply.send(await client.register.metrics())
+  } catch (err) {
+    reply.code(500).send(err)
+  }
+})
+
 // global handler
 fastify.setErrorHandler((err, request, reply) => {
   if (err.isOperational) {
@@ -118,7 +132,7 @@ async function start() {
 
     await fastify.listen({
       port: parseInt(env.PORT, 10),
-      host: '127.0.0.1'
+      host: process.env.HOST || '127.0.0.1'
     })
     console.log(`[SERVER] Port: ${env.PORT}`)
   } catch (err) {
