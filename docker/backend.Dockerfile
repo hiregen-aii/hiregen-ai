@@ -1,54 +1,41 @@
 # docker/backend.Dockerfile
 #
-# Build from the REPO ROOT so this Dockerfile can see apps/backend/:
+# Build from the REPO ROOT so this Dockerfile can see backend/:
 #   docker build -f docker/backend.Dockerfile -t hiregen-backend:latest .
 #
+
 # ---------------------------------------------------------------------------
-# Stage 1: deps — install once, cached separately from source changes
+# Stage 1: deps — install production dependencies
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:20-slim AS deps
 WORKDIR /app
 
-# Copy only manifest files first so this layer is cached unless
-# package.json/package-lock.json actually change.
+# Copy only manifest files first to leverage build cache
 COPY backend/package*.json ./
-RUN npm ci
-RUN mkdir -p node_modules
+RUN npm ci --omit=dev
 
 # ---------------------------------------------------------------------------
-# Stage 2: build — copy source, run build step if the project has one
-# (safe no-op for plain JS backends with no compile step)
+# Stage 2: production runtime — small, no dev dependencies, non-root user
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY backend/ .
-RUN npm run build --if-present
-
-# ---------------------------------------------------------------------------
-# Stage 3: production runtime — small, no dev deps, non-root user
-# ---------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 ENV NODE_ENV=production \
-    PORT=4000
+    PORT=3000 \
+    HOST=0.0.0.0
 
 WORKDIR /app
 
-# Non-root user for defense-in-depth
-RUN addgroup -S nodegrp && adduser -S nodeusr -G nodegrp
+# Non-root user for defense-in-depth (Debian-compatible syntax)
+RUN groupadd -r nodegrp && useradd -r -g nodegrp nodeusr
 
-# Install only production dependencies in the final image
-COPY backend/package*.json ./
-RUN npm ci && npm cache clean --force
-
-# Bring over built/compiled app code from the build stage
-COPY --from=build /app .
+# Copy dependencies and application source with correct ownership
+COPY --from=deps --chown=nodeusr:nodegrp /app/node_modules ./node_modules
+COPY --chown=nodeusr:nodegrp backend/ .
 
 USER nodeusr
-EXPOSE 4000
+EXPOSE 3000
 
-# Uses the existing health.routes.js endpoint
+# Uses the existing health check endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||4000)+'/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+  CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["node", "src/server.js"]

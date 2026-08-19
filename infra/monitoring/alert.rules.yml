@@ -45,7 +45,7 @@ groups:
           summary: "PostgreSQL Down"
 
       - alert: RepeatedFailures
-        expr: count_over_time(up[15m] == 0) > 3
+        expr: sum_over_time((up == 0)[15m:]) > 3
         for: 0m
         labels:
           severity: warning
