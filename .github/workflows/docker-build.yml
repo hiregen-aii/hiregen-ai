@@ -1,0 +1,34 @@
+name: Docker Build Check
+
+on:
+  pull_request:
+    branches:
+      - develop
+  push:
+    branches:
+      - develop
+
+jobs:
+  docker:
+    name: Validate Docker Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Backend Image
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            -t hiregen-backend:test \
+            .
+
+      - name: Build Frontend Image
+        run: |
+          docker build \
+            -f frontend/Dockerfile \
+            -t hiregen-frontend:test \
+            .
+
+      - name: Verify Docker Images
+        run: docker images
