@@ -1,5 +1,5 @@
 # docker/.dockerignore
-#
+
 # This build context is the REPO ROOT (see docker-readme.md), so this file
 # should live at the repo root as plain ".dockerignore" for Docker to pick
 # it up automatically. Copy/rename it there:

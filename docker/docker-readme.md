@@ -4,7 +4,6 @@ This folder has Dockerfiles for backend,frontend,n8n.Run everything fro reporoot
 Dockerfile need to see frontend,bakend and n8n workflow files.
 
 ## Before start
-
 Copy dockerignore file to the root of repo:
 
 cp docker/.dockerignore .dockerignore
@@ -29,7 +28,7 @@ Check if it is working with curl http://localhost:8080 in browser
 docker build -f docker/n8n.Dockerfile -t hiregen-n8n:latest .
 docker run --rm -p 5678:5678 -v n8n_data:/home/node/.n8n hiregen-n8n:latest
 
-Open `http://localhost:5678`.
+Open `http://localhost:5678` in browser.
 
 ## Notes: 
 1. Backend and Frontend both use multistage builds. This means app is built in one stage and only reqired files arecopied to final image. It makes image smaller and help to remove unnecessary development dependencies.
