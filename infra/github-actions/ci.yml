@@ -1,15 +1,2 @@
-# Team 4 (4.4 DevOps) — CI/CD documentation
-#
-# The active GitHub Actions workflow is:
-# .github/workflows/ci.yml
-#
-# CI currently performs:
-# - PostgreSQL service setup
-# - Backend dependency installation
-# - Backend database migrations
-# - Backend integration tests
-# - Team 3 AI Platform build and smoke tests
-# - Backend Docker image build
-#
-# Deployment/CD is intentionally not configured yet because
-# no deployment target or cloud credentials have been provided.
+# Team 4 (4.4 DevOps) — Srajit Saxena owns this file
+# CI pipeline: lint -> unit tests -> integration tests -> build -> deploy
