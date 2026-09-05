@@ -157,6 +157,24 @@ async function runAutoMigrations() {
   }
 }
 
+async function autoSeedMockDataIfEmpty() {
+  try {
+    const res = await db.query('SELECT count(*)::int as count FROM users')
+    if (res.rows[0].count <= 1) {
+      console.log('[SEED] Only admin found. Auto-seeding initial demo data...')
+      const cp = require('node:child_process')
+      const path = require('node:path')
+      const fs = require('node:fs')
+      const seedScript = path.resolve(__dirname, '..', 'scripts', 'seed-mock-data.js')
+      if (fs.existsSync(seedScript)) {
+        cp.fork(seedScript)
+      }
+    }
+  } catch (err) {
+    console.warn('[SEED AUTO WARNING]', err.message)
+  }
+}
+
 // start
 async function start() {
   try {
@@ -164,6 +182,7 @@ async function start() {
     console.log('[DB] Connected')
     await runAutoMigrations()
     await seedAdminUser()
+    await autoSeedMockDataIfEmpty()
 
     await fastify.listen({
       port: parseInt(env.PORT, 10),
