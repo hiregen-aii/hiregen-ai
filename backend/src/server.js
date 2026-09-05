@@ -135,16 +135,39 @@ async function seedAdminUser() {
   console.log(`[AUTH] Admin seed ensured for ${adminEmail}`)
 }
 
+async function runAutoMigrations() {
+  const fs = require('node:fs')
+  const path = require('node:path')
+  const migrationsDir = path.resolve(__dirname, '..', 'migrations')
+  if (fs.existsSync(migrationsDir)) {
+    const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+      try {
+        await db.query(sql)
+        console.log(`[MIGRATION] Applied ${file}`)
+      } catch (err) {
+        if (/already exists|duplicate|relation.*exists|type.*exists/i.test(err.message)) {
+          // Idempotent migration - already applied
+        } else {
+          console.warn(`[MIGRATION] ${file}: ${err.message}`)
+        }
+      }
+    }
+  }
+}
+
 // start
 async function start() {
   try {
     await db.health()
     console.log('[DB] Connected')
+    await runAutoMigrations()
     await seedAdminUser()
 
     await fastify.listen({
       port: parseInt(env.PORT, 10),
-      host: process.env.HOST || '127.0.0.1'
+      host: process.env.HOST || '0.0.0.0'
     })
     console.log(`[SERVER] Port: ${env.PORT}`)
   } catch (err) {
@@ -152,7 +175,7 @@ async function start() {
     console.error(err);
     console.error("===================================");
     process.exit(1);
-}
+  }
 }
 
 // shutdown

@@ -27,9 +27,11 @@ WORKDIR /app
 # Non-root user for defense-in-depth (Debian-compatible syntax)
 RUN groupadd -r nodegrp && useradd -r -g nodegrp nodeusr
 
-# Copy dependencies and application source with correct ownership
-COPY --from=deps --chown=nodeusr:nodegrp /app/node_modules ./node_modules
+# Copy application source first
 COPY --chown=nodeusr:nodegrp backend/ .
+
+# Copy Linux-built dependencies over any potential host node_modules
+COPY --from=deps --chown=nodeusr:nodegrp /app/node_modules ./node_modules
 
 USER nodeusr
 EXPOSE 3000

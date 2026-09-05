@@ -1,0 +1,7 @@
+﻿**/node_modules
+**/dist
+**/.git
+**/.history
+**/*.log
+**/*.docx
+.env
