@@ -149,11 +149,10 @@ CREATE DATABASE hiregen;
 ```bash
 cd backend
 npm install
-npm run migrate
 node scripts/seed-mock-data.js
 node src/server.js
 ```
-*The backend will run at `http://127.0.0.1:3000`.*
+*Note: The backend automatically checks and executes all sequential SQL migrations (`001` through `006`) on startup before listening on `http://127.0.0.1:3000`.*
 
 #### Step 3: Frontend
 In a new terminal:
@@ -168,17 +167,25 @@ npm run dev
 
 ### Option 2: 1-Command Docker Setup
 
-Ensure Docker Desktop is open, then run from the project root:
+Ensure Docker Desktop is running, then execute from the project root:
 ```bash
 docker compose -f infra/docker-compose.yml up --build -d
 ```
 
-Service URLs:
-- **Frontend:** `http://localhost:8080` (or `http://localhost:5173` in dev)
-- **Backend:** `http://localhost:3000`
-- **n8n:** `http://localhost:5678`
-- **Grafana:** `http://localhost:3001`
-- **Prometheus:** `http://localhost:9090`
+All 8 interconnected services will build with isolated Linux dependencies and launch with automated health checks:
+- **Frontend UI (Nginx SPA):** `http://localhost:8080` (or `http://localhost:5173` for Vite dev)
+- **Fastify Core API:** `http://localhost:3000` *(Healthcheck: `http://localhost:3000/health`)*
+- **AI Platform Service:** `http://localhost:3100` *(Healthcheck: `http://localhost:3100/health`)*
+- **PostgreSQL 15:** Port `5433` (mapped to avoid conflicts with local Postgres on 5432)
+- **Redis 7:** Port `6379`
+- **n8n Workflow Automation:** `http://localhost:5678`
+- **Grafana Monitoring:** `http://localhost:3001`
+- **Prometheus Telemetry:** `http://localhost:9090`
+
+To stop all running containers:
+```bash
+docker compose -f infra/docker-compose.yml down
+```
 
 ---
 
