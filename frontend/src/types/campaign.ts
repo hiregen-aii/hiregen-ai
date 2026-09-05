@@ -1,69 +1,24 @@
-export type CampaignStatus =
-  | "Active"
-  | "Paused"
-  | "Completed";
+// Mirrors `campaigns` table exactly — see backend/migrations.
+// NOTE: real schema has NO enrolled/openRate/replyRate columns — those
+// would need email-tracking data joined in, not available yet.
 
-export type HiringType =
-  | "Intern"
-  | "Full Time"
-  | "Contract"
-  | "Bulk Hiring"
-  | "Campus Drive";
+export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
 
 export interface Campaign {
-  id: number;
-
+  id: string;
   name: string;
-
+  hiring_type: string | null;
+  template_reference: string | null;
+  is_active: boolean;
   status: CampaignStatus;
-
-  hiringType: HiringType;
-
-  template: string;
-
-  steps: number;
-
-  delay: number;
-
-  enrolled: number;
-
-  openRate: number;
-
-  replyRate: number;
-
-  createdAt: string;
-
-  approvalRequired: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface CampaignStats {
-  activeSequences: number;
-  paused: number;
-  totalCampaigns: number;
-  leadsEnrolled: number;
-  averageReplyRate: number;
-}
-
-export interface CampaignFormData {
+export interface CreateCampaignPayload {
   name: string;
-
-  hiringType: HiringType;
-
-  template: string;
-
-  steps: number;
-
-  delay: number;
-
-  approvalRequired: boolean;
-}
-
-export interface CampaignFilter {
-  search: string;
-
-  status: "All" | CampaignStatus;
-
-  hiringType:
-    | "All"
-    | HiringType;
+  hiringType?: string;
+  templateReference?: string;
+  isActive?: boolean;
+  status?: CampaignStatus;
 }

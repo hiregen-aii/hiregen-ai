@@ -1,439 +1,257 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Megaphone, Plus, Pause, Play, Archive, Trash2 } from "lucide-react";
 
-import { useNotifications } from "@/context/NotificationContext";
+import { useCampaigns } from "@/hooks/useCampaigns";
+import { useAuthStore } from "@/store/auth-store";
+import { createCampaign, updateCampaignStatus, deleteCampaign } from "@/services/campaigns.service";
+import type { Campaign, CampaignStatus } from "@/types/campaign";
 
-import CampaignStats from "@/components/campaigns/CampaignStats";
-import CampaignFilters from "@/components/campaigns/CampaignFilters";
-import CampaignTable from "@/components/campaigns/CampaignTable";
-
-import NewCampaignModal from "@/components/campaigns/NewCampaignModal";
-import EditCampaignModal from "@/components/campaigns/EditCampaignModal";
-import CampaignDetailsModal from "@/components/campaigns/CampaignDetailsModal";
-import DeleteCampaignModal from "@/components/campaigns/DeleteCampaignModal";
-
-import Toast from "@/components/common/Toast";
-
-import {
-  campaignsData,
-  campaignStats,
-} from "@/data/campaigns";
-
-import type {
-  Campaign,
-  CampaignFilter,
-  CampaignFormData,
-  CampaignStats as CampaignStatsType,
-} from "@/types/campaign";
+const STATUS_STYLES: Record<CampaignStatus, string> = {
+  DRAFT: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  ACTIVE: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  PAUSED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  ARCHIVED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+};
 
 const CampaignsPage = () => {
-  const { addNotification } =
-    useNotifications();
+  const queryClient = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const canManage = role === "ADMIN" || role === "MANAGER";
 
-  /* ---------------- Campaign State ---------------- */
+  const { data: campaigns, isLoading, isError, error } = useCampaigns();
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
-  const [campaigns, setCampaigns] =
-    useState<Campaign[]>(campaignsData);
-
-  const [stats, setStats] =
-    useState<CampaignStatsType>(campaignStats);
-
-  /* ---------------- Selected Campaign ---------------- */
-
-  const [selectedCampaign, setSelectedCampaign] =
-    useState<Campaign | null>(null);
-
-  /* ---------------- Filters ---------------- */
-
-  const [filters, setFilters] =
-    useState<CampaignFilter>({
-      search: "",
-      status: "All",
-      hiringType: "All",
-    });
-
-  /* ---------------- Modals ---------------- */
-
-  const [showNewModal, setShowNewModal] =
-    useState(false);
-
-  const [showEditModal, setShowEditModal] =
-    useState(false);
-
-  const [showViewModal, setShowViewModal] =
-    useState(false);
-
-  const [showDeleteModal, setShowDeleteModal] =
-    useState(false);
-
-  /* ---------------- Toast ---------------- */
-
-  const [toastOpen, setToastOpen] =
-    useState(false);
-
-  const [toastTitle, setToastTitle] =
-    useState("");
-
-  const [toastMessage, setToastMessage] =
-    useState("");
-
-  const [toastType, setToastType] =
-    useState<
-      | "success"
-      | "edit"
-      | "delete"
-      | "meeting"
-    >("success");
-
-  const showToast = (
-    title: string,
-    message: string,
-    type:
-      | "success"
-      | "edit"
-      | "delete"
-      | "meeting"
-  ) => {
-    setToastTitle(title);
-    setToastMessage(message);
-    setToastType(type);
-    setToastOpen(true);
-  };
-
-  /* ---------------- Filtered Campaigns ---------------- */
-
-  const filteredCampaigns = useMemo(() => {
-    return campaigns.filter((campaign) => {
-      const matchesSearch =
-        campaign.name
-          .toLowerCase()
-          .includes(filters.search.toLowerCase()) ||
-        campaign.template
-          .toLowerCase()
-          .includes(filters.search.toLowerCase());
-
-      const matchesStatus =
-        filters.status === "All" ||
-        campaign.status === filters.status;
-
-      const matchesHiringType =
-        filters.hiringType === "All" ||
-        campaign.hiringType ===
-          filters.hiringType;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesHiringType
-      );
-    });
-  }, [campaigns, filters]);
-
-    /* ---------------- Search ---------------- */
-
-  const handleSearch = (value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      search: value,
-    }));
-  };
-
-  /* ---------------- Status Filter ---------------- */
-
-  const handleStatusChange = (
-    status: CampaignFilter["status"]
-  ) => {
-    setFilters((prev) => ({
-      ...prev,
-      status,
-    }));
-  };
-
-  /* ---------------- Hiring Type Filter ---------------- */
-
-  const handleHiringTypeChange = (
-    hiringType: CampaignFilter["hiringType"]
-  ) => {
-    setFilters((prev) => ({
-      ...prev,
-      hiringType,
-    }));
-  };
-
-  /* ---------------- View ---------------- */
-
-  const handleView = (campaign: Campaign) => {
-    setSelectedCampaign(campaign);
-    setShowViewModal(true);
-  };
-
-  /* ---------------- Edit ---------------- */
-
-  const handleEdit = (campaign: Campaign) => {
-    setSelectedCampaign(campaign);
-    setShowEditModal(true);
-  };
-
-  /* ---------------- Delete ---------------- */
-
-  const handleDelete = (campaign: Campaign) => {
-    setSelectedCampaign(campaign);
-    setShowDeleteModal(true);
-  };
-
-  /* ---------------- New Campaign ---------------- */
-
-  const handleNewCampaign = (
-    formData: CampaignFormData
-  ) => {
-    const newCampaign: Campaign = {
-      id: Date.now(),
-
-      name: formData.name,
-
-      hiringType: formData.hiringType,
-
-      template: formData.template,
-
-      steps: formData.steps,
-
-      delay: formData.delay,
-
-      approvalRequired:
-        formData.approvalRequired,
-
-      status: "Active",
-
-      enrolled: 0,
-
-      openRate: 0,
-
-      replyRate: 0,
-
-      createdAt: new Date().toLocaleDateString(),
+  const stats = useMemo(() => {
+    const list = campaigns ?? [];
+    return {
+      total: list.length,
+      active: list.filter((c) => c.status === "ACTIVE").length,
+      paused: list.filter((c) => c.status === "PAUSED").length,
+      draft: list.filter((c) => c.status === "DRAFT").length,
     };
+  }, [campaigns]);
 
-    setCampaigns((prev) => [
-      newCampaign,
-      ...prev,
-    ]);
-
-    setStats((prev) => ({
-      ...prev,
-      totalCampaigns:
-        prev.totalCampaigns + 1,
-      activeSequences:
-        prev.activeSequences + 1,
-    }));
-
-    addNotification({
-      title: "Campaign Created",
-      message: `${newCampaign.name} has been created.`,
-      type: "success",
-    });
-
-    showToast(
-      "Campaign Created",
-      `${newCampaign.name} created successfully.`,
-      "success"
-    );
-
-    setShowNewModal(false);
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setActionError(null);
+    try {
+      await createCampaign({ name: newName.trim() });
+      await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      setNewName("");
+      setShowNewForm(false);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to create campaign");
+    }
   };
 
-    /* ---------------- Save Edited Campaign ---------------- */
-
-  const handleSaveCampaign = (
-    formData: CampaignFormData
-  ) => {
-    if (!selectedCampaign) return;
-
-    setCampaigns((prev) =>
-      prev.map((campaign) =>
-        campaign.id === selectedCampaign.id
-          ? {
-              ...campaign,
-              name: formData.name,
-              hiringType: formData.hiringType,
-              template: formData.template,
-              steps: formData.steps,
-              delay: formData.delay,
-              approvalRequired:
-                formData.approvalRequired,
-            }
-          : campaign
-      )
-    );
-
-    addNotification({
-      title: "Campaign Updated",
-      message: `${formData.name} updated successfully.`,
-      type: "edit",
-    });
-
-    showToast(
-      "Campaign Updated",
-      "Campaign updated successfully.",
-      "edit"
-    );
-
-    setShowEditModal(false);
-    setSelectedCampaign(null);
+  const handleStatusChange = async (campaign: Campaign, status: CampaignStatus) => {
+    setActioningId(campaign.id);
+    setActionError(null);
+    try {
+      await updateCampaignStatus(campaign.id, status);
+      await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update campaign");
+    } finally {
+      setActioningId(null);
+    }
   };
 
-  /* ---------------- Confirm Delete ---------------- */
-
-  const handleConfirmDelete = () => {
-    if (!selectedCampaign) return;
-
-    setCampaigns((prev) =>
-      prev.filter(
-        (campaign) =>
-          campaign.id !== selectedCampaign.id
-      )
-    );
-
-    setStats((prev) => ({
-      ...prev,
-      totalCampaigns: Math.max(
-        0,
-        prev.totalCampaigns - 1
-      ),
-      activeSequences:
-        selectedCampaign.status === "Active"
-          ? Math.max(
-              0,
-              prev.activeSequences - 1
-            )
-          : prev.activeSequences,
-      paused:
-        selectedCampaign.status === "Paused"
-          ? Math.max(0, prev.paused - 1)
-          : prev.paused,
-      leadsEnrolled: Math.max(
-        0,
-        prev.leadsEnrolled -
-          selectedCampaign.enrolled
-      ),
-    }));
-
-    addNotification({
-      title: "Campaign Deleted",
-      message: `${selectedCampaign.name} has been deleted.`,
-      type: "delete",
-    });
-
-    showToast(
-      "Campaign Deleted",
-      "Campaign deleted successfully.",
-      "delete"
-    );
-
-    setShowDeleteModal(false);
-    setSelectedCampaign(null);
+  const handleDelete = async (campaign: Campaign) => {
+    setActioningId(campaign.id);
+    setActionError(null);
+    try {
+      await deleteCampaign(campaign.id);
+      await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete campaign");
+    } finally {
+      setActioningId(null);
+    }
   };
 
-  /* ---------------- Close Modals ---------------- */
-
-  const closeAllModals = () => {
-    setShowNewModal(false);
-    setShowEditModal(false);
-    setShowViewModal(false);
-    setShowDeleteModal(false);
-    setSelectedCampaign(null);
-  };
-
-    return (
+  return (
     <div className="space-y-6">
-
-      {/* Header */}
-
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Campaign Management
-          </h1>
-
-          <p className="mt-2 text-slate-500 dark:text-slate-400">
-            Create, manage and monitor recruitment campaigns.
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Campaign Management</h1>
+          <p className="mt-1 text-slate-500 dark:text-slate-400">
+            Create and track outreach campaigns.
           </p>
-
         </div>
-
+        {canManage && (
+          <button
+            onClick={() => setShowNewForm((v) => !v)}
+            className="flex items-center gap-2 self-start rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+          >
+            <Plus className="h-4 w-4" />
+            New Campaign
+          </button>
+        )}
       </div>
 
-      {/* Statistics */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatBox label="Total" value={stats.total} color="#7C3AED" />
+        <StatBox label="Active" value={stats.active} color="#22C55E" />
+        <StatBox label="Paused" value={stats.paused} color="#F59E0B" />
+        <StatBox label="Draft" value={stats.draft} color="#64748B" />
+      </div>
 
-      <CampaignStats
-        stats={stats}
-      />
+      {showNewForm && canManage && (
+        <div className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-[#111827]">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Campaign name..."
+            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-[#1E293B] dark:text-white"
+          />
+          <button
+            onClick={handleCreate}
+            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+          >
+            Create
+          </button>
+        </div>
+      )}
 
-            {/* Filters */}
+      {actionError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {actionError}
+        </div>
+      )}
 
-      <CampaignFilters
-        filters={filters}
-        onSearch={handleSearch}
-        onStatusChange={handleStatusChange}
-        onHiringTypeChange={handleHiringTypeChange}
-        onNewCampaign={() => setShowNewModal(true)}
-      />
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          ))}
+        </div>
+      )}
 
-      {/* Campaign Table */}
+      {isError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {error instanceof Error ? error.message : "Failed to load campaigns"}
+        </div>
+      )}
 
-      <CampaignTable
-        campaigns={filteredCampaigns}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+      {!isLoading && !isError && (campaigns?.length ?? 0) === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-[#111827]">
+          <Megaphone className="mb-3 h-8 w-8 text-slate-300" />
+          <p className="text-slate-500 dark:text-slate-400">No campaigns yet.</p>
+        </div>
+      )}
 
-            {/* New Campaign */}
+      {!isLoading && !isError && (campaigns?.length ?? 0) > 0 && (
+        <div className="space-y-3">
+          {campaigns!.map((campaign) => (
+            <div
+              key={campaign.id}
+              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-[#111827]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/30">
+                  <Megaphone className="h-5 w-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900 dark:text-white">{campaign.name}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {campaign.hiring_type ?? "No hiring type set"}
+                  </p>
+                </div>
+              </div>
 
-      <NewCampaignModal
-        open={showNewModal}
-        onClose={closeAllModals}
-        onSave={handleNewCampaign}
-      />
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLES[campaign.status]}`}>
+                  {campaign.status}
+                </span>
 
-      {/* Edit Campaign */}
-
-      <EditCampaignModal
-        open={showEditModal}
-        campaign={selectedCampaign}
-        onClose={closeAllModals}
-        onSave={handleSaveCampaign}
-      />
-
-      {/* View Campaign */}
-
-      <CampaignDetailsModal
-        open={showViewModal}
-        campaign={selectedCampaign}
-        onClose={closeAllModals}
-      />
-
-      {/* Delete Campaign */}
-
-      <DeleteCampaignModal
-        open={showDeleteModal}
-        campaign={selectedCampaign}
-        onClose={closeAllModals}
-        onDelete={handleConfirmDelete}
-      />
-
-      {/* Toast */}
-
-      <Toast
-        open={toastOpen}
-        title={toastTitle}
-        message={toastMessage}
-        type={toastType}
-        onClose={() => setToastOpen(false)}
-      />
-
+                {canManage && (
+                  <div className="flex gap-1">
+                    {campaign.status !== "ACTIVE" && (
+                      <IconButton
+                        icon={<Play className="h-4 w-4" />}
+                        title="Activate"
+                        onClick={() => handleStatusChange(campaign, "ACTIVE")}
+                        disabled={actioningId === campaign.id}
+                      />
+                    )}
+                    {campaign.status === "ACTIVE" && (
+                      <IconButton
+                        icon={<Pause className="h-4 w-4" />}
+                        title="Pause"
+                        onClick={() => handleStatusChange(campaign, "PAUSED")}
+                        disabled={actioningId === campaign.id}
+                      />
+                    )}
+                    {campaign.status !== "ARCHIVED" && (
+                      <IconButton
+                        icon={<Archive className="h-4 w-4" />}
+                        title="Archive"
+                        onClick={() => handleStatusChange(campaign, "ARCHIVED")}
+                        disabled={actioningId === campaign.id}
+                      />
+                    )}
+                    <IconButton
+                      icon={<Trash2 className="h-4 w-4" />}
+                      title="Delete"
+                      onClick={() => handleDelete(campaign)}
+                      disabled={actioningId === campaign.id}
+                      danger
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
+interface StatBoxProps {
+  label: string;
+  value: number;
+  color: string;
+}
+
+const StatBox = ({ label, value, color }: StatBoxProps) => (
+  <div
+    className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-[#111827]"
+    style={{ borderBottom: `3px solid ${color}` }}
+  >
+    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</p>
+    <p className="mt-1 text-2xl font-bold" style={{ color }}>
+      {value}
+    </p>
+  </div>
+);
+
+interface IconButtonProps {
+  icon: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}
+
+const IconButton = ({ icon, title, onClick, disabled, danger }: IconButtonProps) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={`rounded-lg p-2 transition disabled:opacity-40 ${
+      danger
+        ? "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+        : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+    }`}
+  >
+    {icon}
+  </button>
+);
 
 export default CampaignsPage;

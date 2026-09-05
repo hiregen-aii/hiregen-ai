@@ -1,22 +1,16 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
-import type { Lead } from "@/data/leads";
+import type { EnrichedLead } from "@/features/leads/hooks/useEnrichedLeads";
 
 interface LeadActionsProps {
-  lead: Lead;
-  onView: (lead: Lead) => void;
-  onEdit: (lead: Lead) => void;
-  onDelete: (lead: Lead) => void;
+  lead: EnrichedLead;
+  onView: (lead: EnrichedLead) => void;
+  onEdit: (lead: EnrichedLead) => void;
+  onDelete: (lead: EnrichedLead) => void;
 }
 
-const LeadActions = ({
-  lead,
-  onView,
-  onEdit,
-  onDelete,
-}: LeadActionsProps) => {
+const LeadActions = ({ lead, onView, onEdit, onDelete }: LeadActionsProps) => {
   return (
     <div className="flex items-center justify-center gap-2">
-
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -49,7 +43,6 @@ const LeadActions = ({
       >
         <Trash2 className="h-4 w-4" />
       </button>
-
     </div>
   );
 };

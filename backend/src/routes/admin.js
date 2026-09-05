@@ -1,9 +1,12 @@
 const { verifyToken } = require('../middleware/authenticate')
 const { requireRole } = require('../middleware/authorize')
-const { adminProfileHandler } = require('../controllers/admin.controller')
+const {
+  adminProfileHandler,
+  listUsersHandler,
+  updateUserRoleHandler,
+  updateUserStatusHandler
+} = require('../controllers/admin.controller')
 
-// FIX: was hardcoded /api/admin/profile — now relative path + prefix from
-// server.js, consistent with /api/v1/... everywhere else.
 module.exports = async function adminRoutes(fastify) {
   fastify.get(
     '/profile',
@@ -11,5 +14,32 @@ module.exports = async function adminRoutes(fastify) {
       preHandler: [verifyToken, requireRole(['ADMIN', 'MANAGER'])]
     },
     adminProfileHandler
+  )
+
+  // NEW — Administration page: list all users
+  fastify.get(
+    '/users',
+    {
+      preHandler: [verifyToken, requireRole(['ADMIN'])]
+    },
+    listUsersHandler
+  )
+
+  // NEW — Administration page: change a user's role
+  fastify.patch(
+    '/users/:id/role',
+    {
+      preHandler: [verifyToken, requireRole(['ADMIN'])]
+    },
+    updateUserRoleHandler
+  )
+
+  // NEW — Administration page: activate/deactivate a user
+  fastify.patch(
+    '/users/:id/status',
+    {
+      preHandler: [verifyToken, requireRole(['ADMIN'])]
+    },
+    updateUserStatusHandler
   )
 }

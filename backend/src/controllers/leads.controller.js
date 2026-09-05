@@ -13,6 +13,7 @@ const {
 
 const AppError = require("../utils/AppError");
 const { runResearchPipeline } = require("../agents/research.agent");
+const { createNotification } = require("../repositories/notifications.repository");
 
 // Create Lead
 const createLeadHandler = async (request, reply) => {
@@ -51,7 +52,6 @@ const createLeadHandler = async (request, reply) => {
   }
 };
 
-// Get All Leads
 const getAllLeadsHandler = async (request, reply) => {
   try {
     const leads = await getAllLeads();
@@ -65,7 +65,6 @@ const getAllLeadsHandler = async (request, reply) => {
   }
 };
 
-// Get Lead By ID
 const getLeadByIdHandler = async (request, reply) => {
   try {
     const { id } = request.params;
@@ -85,7 +84,6 @@ const getLeadByIdHandler = async (request, reply) => {
   }
 };
 
-// Update Lead (stage / owner / fitScore)
 const updateLeadHandler = async (request, reply) => {
   try {
     const { id } = request.params;
@@ -103,6 +101,8 @@ const updateLeadHandler = async (request, reply) => {
       throw new AppError("Lead not found", 404);
     }
 
+    const previousStage = lead.stage;
+
     if (stage !== undefined) {
       lead = await updateLeadStage(id, stage);
     }
@@ -111,6 +111,23 @@ const updateLeadHandler = async (request, reply) => {
     }
     if (fitScore !== undefined) {
       lead = await updateLeadScore(id, fitScore);
+    }
+
+    // NEW — notify the lead's owner when the stage actually changed to
+    // MEETING_BOOKED (the one stage transition worth flagging for now).
+    if (stage !== undefined && stage !== previousStage && stage === "MEETING_BOOKED" && lead.owner_id) {
+      try {
+        await createNotification(
+          lead.owner_id,
+          "MEETING_BOOKED",
+          "Meeting booked",
+          "A lead you own just moved to Meeting Booked.",
+          "lead",
+          lead.id
+        );
+      } catch (notifyErr) {
+        request.log.error(notifyErr);
+      }
     }
 
     return reply.send({

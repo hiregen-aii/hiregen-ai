@@ -1,9 +1,12 @@
 const { authLimit } = require('../middleware/rateLimit')
-const { loginHandler, refreshHandler, logoutHandler } = require('../controllers/auth.controller')
+const { verifyToken } = require('../middleware/authenticate')
+const {
+  loginHandler,
+  refreshHandler,
+  logoutHandler,
+  updateProfileHandler
+} = require('../controllers/auth.controller')
 
-// FIX: paths were hardcoded as /api/auth/... (no /v1), inconsistent with
-// the rest of the API (SRS §14 specifies /api/v1/...). Now registered
-// with relative paths + a /api/v1/auth prefix from server.js.
 module.exports = async function authRoutes(fastify) {
   fastify.post(
     '/login',
@@ -33,5 +36,15 @@ module.exports = async function authRoutes(fastify) {
       }
     },
     logoutHandler
+  )
+
+  // NEW — self-service profile edit (name only). Requires a valid session;
+  // no role restriction beyond "you must be logged in as yourself".
+  fastify.patch(
+    '/me',
+    {
+      preHandler: [verifyToken]
+    },
+    updateProfileHandler
   )
 }

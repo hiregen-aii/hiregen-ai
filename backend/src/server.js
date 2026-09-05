@@ -53,6 +53,17 @@ fastify.register(
 fastify.register(require("./routes/companies.routes"), { prefix: "/api/v1/companies" });
 fastify.register(require("./routes/contacts.routes"), { prefix: "/api/v1/contacts" });
 
+// NEW — Approval Queue, Campaigns, Analytics: repositories existed with
+// no route ever registering them. Closing that gap (see
+// backend-route-gaps-spec.md for the original finding).
+fastify.register(require("./routes/approval.routes"), { prefix: "/api/v1/approval" });
+fastify.register(require("./routes/campaigns.routes"), { prefix: "/api/v1/campaigns" });
+fastify.register(require("./routes/analytics.routes"), { prefix: "/api/v1/analytics" });
+
+// NEW — Notifications: see settings-notifications-architecture-plan.md.
+// Polling-based (no Socket.IO server) — frontend refetches on an interval.
+fastify.register(require("./routes/notifications.routes"), { prefix: "/api/v1/notifications" });
+
 // Service-to-service (n8n) endpoints — separate prefix, NOT behind
 // verifyToken/requireRole, since n8n can't hold a user JWT. This currently
 // only has payload validation (see webhookRoutes.js) — API-key + HMAC

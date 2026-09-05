@@ -1,379 +1,174 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, XCircle, Clock, Mail } from "lucide-react";
 
-import { useNotifications } from "@/context/NotificationContext";
+import { useApprovals } from "@/hooks/useApprovals";
+import { useEnrichedLeads } from "@/features/leads/hooks/useEnrichedLeads";
+import { useAuthStore } from "@/store/auth-store";
+import { updateApprovalStatus } from "@/services/approval.service";
+import type { Approval, ApprovalStatus } from "@/types/approval";
 
-import ApprovalStats from "@/components/approval/ApprovalStats";
-import ApprovalSearchBar from "@/components/approval/ApprovalSearchBar";
-import ApprovalTable from "@/components/approval/ApprovalTable";
-import ReviewDraftModal from "@/components/approval/ReviewDraftModal";
-import ScheduleModal from "@/components/approval/ScheduleModal";
-import ConfirmApproveModal from "@/components/approval/ConfirmApproveModal";
-import ConfirmRejectModal from "@/components/approval/ConfirmRejectModal";
-import Toast from "@/components/common/Toast";
-
-import {
-  approvalDrafts as initialDrafts,
-  type ApprovalDraft,
-} from "@/data/approval";
+const STATUS_STYLES: Record<ApprovalStatus, string> = {
+  PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  APPROVED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  REJECTED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+};
 
 const ApprovalPage = () => {
-  const { addNotification } = useNotifications();
+  const queryClient = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const canReview = role === "ADMIN" || role === "MANAGER";
 
-  // Drafts
+  const { data: approvals, isLoading, isError, error } = useApprovals();
+  const { enrichedLeads } = useEnrichedLeads();
+  const [statusFilter, setStatusFilter] = useState<"All" | ApprovalStatus>("PENDING");
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const [drafts, setDrafts] =
-    useState<ApprovalDraft[]>(initialDrafts);
+  const leadMap = useMemo(() => new Map(enrichedLeads.map((l) => [l.id, l])), [enrichedLeads]);
 
-  // Selected Draft
+  const filtered = useMemo(() => {
+    const list = approvals ?? [];
+    if (statusFilter === "All") return list;
+    return list.filter((a) => a.status === statusFilter);
+  }, [approvals, statusFilter]);
 
-  const [selectedDraft, setSelectedDraft] =
-    useState<ApprovalDraft | null>(null);
-
-  // Search
-
-  const [search, setSearch] = useState("");
-
-  // Filter
-
-  const [status, setStatus] =
-    useState("All");
-
-  // Review Modal
-
-  const [showReviewModal, setShowReviewModal] =
-    useState(false);
-
-  // Schedule Modal
-
-  const [showScheduleModal, setShowScheduleModal] =
-    useState(false);
-
-  // Approve Modal
-
-  const [showApproveModal, setShowApproveModal] =
-    useState(false);
-
-  // Reject Modal
-
-  const [showRejectModal, setShowRejectModal] =
-    useState(false);
-
-  // Toast
-
-  const [toastOpen, setToastOpen] =
-    useState(false);
-
-  const [toastTitle, setToastTitle] =
-    useState("");
-
-  const [toastMessage, setToastMessage] =
-    useState("");
-
-  const [toastType, setToastType] =
-    useState<
-      "success" | "edit" | "delete" | "meeting"
-    >("success");
-
-  // Search Filter
-
-  const filteredDrafts = useMemo(() => {
-    return drafts.filter((draft) => {
-
-      const matchesSearch =
-        draft.company
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-
-        draft.contact
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-
-        draft.email
-          .toLowerCase()
-          .includes(search.toLowerCase()) ||
-
-        draft.jobTitle
-          .toLowerCase()
-          .includes(search.toLowerCase());
-
-      const matchesStatus =
-        status === "All" ||
-        draft.status === status;
-
-      return (
-        matchesSearch &&
-        matchesStatus
-      );
-    });
-  }, [
-    drafts,
-    search,
-    status,
-  ]);
-
-  // Toast Helper
-
-  const showToast = (
-    title: string,
-    message: string,
-    type:
-      | "success"
-      | "edit"
-      | "delete"
-      | "meeting"
-  ) => {
-    setToastTitle(title);
-    setToastMessage(message);
-    setToastType(type);
-    setToastOpen(true);
+  const handleAction = async (approval: Approval, status: ApprovalStatus) => {
+    setActionError(null);
+    setActioningId(approval.id);
+    try {
+      await updateApprovalStatus(approval.id, status);
+      await queryClient.invalidateQueries({ queryKey: ["approvals"] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update approval");
+    } finally {
+      setActioningId(null);
+    }
   };
 
-  // Review Draft
-
-  const handleReview = (
-    draft: ApprovalDraft
-  ) => {
-    setSelectedDraft(draft);
-    setShowReviewModal(true);
-  };
-
-  // Save Draft
-
-  const handleSave = (
-    updatedDraft: ApprovalDraft
-  ) => {
-
-    setDrafts((prev) =>
-      prev.map((draft) =>
-        draft.id === updatedDraft.id
-          ? updatedDraft
-          : draft
-      )
-    );
-
-    setSelectedDraft(updatedDraft);
-
-    addNotification({
-      title: "Draft Updated",
-      message: `${updatedDraft.company} draft updated.`,
-      type: "edit",
-    });
-
-    showToast(
-      "Draft Updated",
-      `${updatedDraft.company} updated successfully.`,
-      "edit"
-    );
-  };
-
-  // Approve
-
-  const handleApprove = () => {
-    setShowApproveModal(true);
-  };
-
-  // Reject
-
-  const handleReject = () => {
-    setShowRejectModal(true);
-  };
-
-  // Schedule
-
-  const handleSchedule = () => {
-    setShowScheduleModal(true);
-  };
-
-  // Confirm Approve
-
-  const confirmApprove = (
-    draft: ApprovalDraft
-  ) => {
-
-    const updated = {
-      ...draft,
-      status: "Approved" as const,
-    };
-
-    handleSave(updated);
-
-    setShowApproveModal(false);
-    setShowReviewModal(false);
-
-    addNotification({
-      title: "Draft Approved",
-      message: `${draft.company} approved.`,
-      type: "success",
-    });
-
-    showToast(
-      "Approved",
-      `${draft.company} approved successfully.`,
-      "success"
-    );
-  };
-
-  // Confirm Reject
-
-  const confirmReject = (
-    draft: ApprovalDraft
-  ) => {
-
-    const updated = {
-      ...draft,
-      status: "Rejected" as const,
-    };
-
-    handleSave(updated);
-
-    setShowRejectModal(false);
-    setShowReviewModal(false);
-
-    addNotification({
-      title: "Draft Rejected",
-      message: `${draft.company} rejected.`,
-      type: "delete",
-    });
-
-    showToast(
-      "Rejected",
-      `${draft.company} rejected.`,
-      "delete"
-    );
-  };
-
-  // Confirm Schedule
-
-  const confirmSchedule = (
-    date: string,
-    time: string,
-    notes: string
-  ) => {
-
-    if (!selectedDraft) return;
-
-    const updated = {
-      ...selectedDraft,
-      status: "Scheduled" as const,
-    };
-
-    handleSave(updated);
-
-    setShowScheduleModal(false);
-    setShowReviewModal(false);
-
-    addNotification({
-      title: "Draft Scheduled",
-      message: `${selectedDraft.company} scheduled for ${date} ${time}.`,
-      type: "meeting",
-    });
-
-    showToast(
-      "Scheduled",
-      `${selectedDraft.company} scheduled successfully.`,
-      "meeting"
-    );
-
-    console.log({
-      date,
-      time,
-      notes,
-    });
-  };
-
-    return (
-    <>
-      <div className="space-y-6">
-
-        {/* Header */}
-
-        <div>
-
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Approval Queue
-          </h1>
-
-          <p className="mt-2 text-slate-500 dark:text-slate-400">
-            Review AI-generated outreach emails before sending them to clients.
-          </p>
-
-        </div>
-
-        {/* Stats */}
-
-        <ApprovalStats
-          drafts={drafts}
-        />
-
-        {/* Search */}
-
-        <ApprovalSearchBar
-          search={search}
-          setSearch={setSearch}
-          status={status}
-          setStatus={setStatus}
-        />
-
-        {/* Table */}
-
-        <ApprovalTable
-          drafts={filteredDrafts}
-          onReview={handleReview}
-        />
-
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Approval Queue</h1>
+        <p className="mt-1 text-slate-500 dark:text-slate-400">
+          Review and approve outreach drafts before they're sent.
+        </p>
       </div>
 
-      {/* Review Draft */}
+      <div className="flex gap-2">
+        {(["PENDING", "APPROVED", "REJECTED", "All"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              statusFilter === s
+                ? "bg-violet-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+            }`}
+          >
+            {s === "All" ? "All" : s.charAt(0) + s.slice(1).toLowerCase()}
+          </button>
+        ))}
+      </div>
 
-      <ReviewDraftModal
-        open={showReviewModal}
-        draft={selectedDraft}
-        onClose={() => {
-          setShowReviewModal(false);
-          setSelectedDraft(null);
-        }}
-        onSave={handleSave}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onSchedule={handleSchedule}
-      />
+      {actionError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {actionError}
+        </div>
+      )}
 
-            {/* Schedule Modal */}
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-32 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          ))}
+        </div>
+      )}
 
-      <ScheduleModal
-        open={showScheduleModal}
-        onClose={() => setShowScheduleModal(false)}
-        onSchedule={confirmSchedule}
-      />
+      {isError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {error instanceof Error ? error.message : "Failed to load approvals"}
+        </div>
+      )}
 
-      {/* Approve Dialog */}
+      {!isLoading && !isError && filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-[#111827]">
+          <Clock className="mb-3 h-8 w-8 text-slate-300" />
+          <p className="text-slate-500 dark:text-slate-400">No {statusFilter.toLowerCase()} approvals.</p>
+        </div>
+      )}
 
-      <ConfirmApproveModal
-        open={showApproveModal}
-        draft={selectedDraft}
-        onClose={() => setShowApproveModal(false)}
-        onConfirm={confirmApprove}
-      />
+      {!isLoading && !isError && filtered.length > 0 && (
+        <div className="space-y-4">
+          {filtered.map((approval) => {
+            const lead = leadMap.get(approval.lead_id);
 
-      {/* Reject Dialog */}
+            return (
+              <div
+                key={approval.id}
+                className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-[#111827]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/30">
+                      <Mail className="h-5 w-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        {lead?.company ?? "Unknown company"}
+                        <span className="ml-2 text-sm font-normal text-slate-400">
+                          Step {approval.step_number}
+                        </span>
+                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        To: {lead?.contact ?? "No contact linked"}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLES[approval.status]}`}>
+                    {approval.status}
+                  </span>
+                </div>
 
-      <ConfirmRejectModal
-        open={showRejectModal}
-        draft={selectedDraft}
-        onClose={() => setShowRejectModal(false)}
-        onConfirm={confirmReject}
-      />
+                <div className="mt-4 rounded-xl bg-slate-50 p-4 dark:bg-slate-800">
+                  <p className="font-medium text-slate-900 dark:text-white">{approval.draft_subject}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">
+                    {approval.draft_body}
+                  </p>
+                </div>
 
-      {/* Toast */}
+                {approval.status === "PENDING" && canReview && (
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={() => handleAction(approval, "APPROVED")}
+                      disabled={actioningId === approval.id}
+                      className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleAction(approval, "REJECTED")}
+                      disabled={actioningId === approval.id}
+                      className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Reject
+                    </button>
+                  </div>
+                )}
 
-      <Toast
-        open={toastOpen}
-        title={toastTitle}
-        message={toastMessage}
-        type={toastType}
-        onClose={() => setToastOpen(false)}
-      />
-    </>
+                {approval.status === "PENDING" && !canReview && (
+                  <p className="mt-4 text-xs text-slate-400">
+                    Only ADMIN/MANAGER can approve or reject drafts.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 };
 

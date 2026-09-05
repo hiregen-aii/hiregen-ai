@@ -1,644 +1,172 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Users, ShieldCheck, ShieldOff } from "lucide-react";
 
-import AdministrationStats from "@/components/administration/AdministrationStats";
-import AdministrationTabs, {
-  type AdminTab,
-} from "@/components/administration/AdministrationTabs";
+import { useAdminUsers } from "@/hooks/useAdminUsers";
+import { useAuthStore } from "@/store/auth-store";
+import { updateUserRole, updateUserStatus } from "@/services/admin-users.service";
+import type { AdminUser, UserRole } from "@/types/admin-user";
 
-import UsersTable from "@/components/administration/UsersTable";
-import RolesTable from "@/components/administration/RolesTable";
-import CompaniesTable from "@/components/administration/CompaniesTable";
-import ActivityLogsTable from "@/components/administration/ActivityLogsTable";
+const ROLES: UserRole[] = ["ADMIN", "MANAGER", "SALES_REP", "RECRUITER", "VIEWER"];
 
-import AddUserModal from "@/components/administration/AddUserModal";
-import AddRoleModal from "@/components/administration/AddRoleModal";
-import AddCompanyModal from "@/components/administration/AddCompanyModal";
-
-import ViewModal from "@/components/administration/ViewModal";
-import DeleteModal from "@/components/administration/DeleteModal";
-
-import {
-  adminStats,
-  users as initialUsers,
-  roles as initialRoles,
-  companies as initialCompanies,
-  activityLogs,
-} from "@/data/administration";
-
-import type {
-  User,
-  Role,
-  Company,
-  ActivityLog,
-  AddUserForm,
-  AddRoleForm,
-  AddCompanyForm,
-} from "@/types/administration";
+const ROLE_STYLES: Record<UserRole, string> = {
+  ADMIN: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+  MANAGER: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  SALES_REP: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  RECRUITER: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  VIEWER: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+};
 
 const AdminPage = () => {
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((s) => s.user);
+  const { data: users, isLoading, isError, error } = useAdminUsers();
 
-  /* ----------------------------- */
-  /* Main Data                     */
-  /* ----------------------------- */
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const [users, setUsers] =
-    useState<User[]>(initialUsers);
-
-  const [roles, setRoles] =
-    useState<Role[]>(initialRoles);
-
-  const [companies, setCompanies] =
-    useState<Company[]>(initialCompanies);
-
-  const [logs] =
-    useState<ActivityLog[]>(activityLogs);
-
-  /* ----------------------------- */
-  /* Active Tab                    */
-  /* ----------------------------- */
-
-  const [activeTab, setActiveTab] =
-    useState<AdminTab>("users");
-
-  /* ----------------------------- */
-  /* Search                        */
-  /* ----------------------------- */
-
-  const [userSearch, setUserSearch] =
-    useState("");
-
-  const [roleSearch, setRoleSearch] =
-    useState("");
-
-  const [companySearch, setCompanySearch] =
-    useState("");
-
-  const [activitySearch, setActivitySearch] =
-    useState("");
-
-  /* ----------------------------- */
-  /* Add/Edit Modals               */
-  /* ----------------------------- */
-
-  const [showUserModal, setShowUserModal] =
-    useState(false);
-
-  const [showRoleModal, setShowRoleModal] =
-    useState(false);
-
-  const [showCompanyModal, setShowCompanyModal] =
-    useState(false);
-
-  const [userModalMode, setUserModalMode] =
-    useState<"add" | "edit">("add");
-
-  const [roleModalMode, setRoleModalMode] =
-    useState<"add" | "edit">("add");
-
-  const [companyModalMode, setCompanyModalMode] =
-    useState<"add" | "edit">("add");
-
-  const [selectedUser, setSelectedUser] =
-    useState<User | null>(null);
-
-  const [selectedRole, setSelectedRole] =
-    useState<Role | null>(null);
-
-  const [selectedCompany, setSelectedCompany] =
-    useState<Company | null>(null);
-
-      /* ----------------------------- */
-  /* View Modal                    */
-  /* ----------------------------- */
-
-  const [showViewModal, setShowViewModal] =
-    useState(false);
-
-  const [viewType, setViewType] =
-    useState<"user" | "role" | "company">("user");
-
-  const [viewData, setViewData] =
-    useState<User | Role | Company | null>(null);
-
-  /* ----------------------------- */
-  /* Delete Modal                  */
-  /* ----------------------------- */
-
-  const [showDeleteModal, setShowDeleteModal] =
-    useState(false);
-
-  const [deleteType, setDeleteType] =
-    useState<"user" | "role" | "company">("user");
-
-  const [deleteName, setDeleteName] =
-    useState("");
-
-  const [deleteId, setDeleteId] =
-    useState<number | null>(null);
-
-  /* ----------------------------- */
-  /* Statistics                    */
-  /* ----------------------------- */
-
-  const stats = useMemo(() => {
-
-    return adminStats.map((stat) => {
-
-      switch (stat.title) {
-
-        case "Total Users":
-          return {
-            ...stat,
-            value: users.length,
-          };
-
-        case "Companies":
-          return {
-            ...stat,
-            value: companies.length,
-          };
-
-        case "Roles":
-          return {
-            ...stat,
-            value: roles.length,
-          };
-
-        case "Activity Logs":
-          return {
-            ...stat,
-            value: logs.length,
-          };
-
-        default:
-          return stat;
-
-      }
-
-    });
-
-  }, [users, roles, companies, logs]);
-
-  /* ----------------------------- */
-  /* Add / Edit User               */
-  /* ----------------------------- */
-
-  const saveUser = (
-    form: AddUserForm
-  ) => {
-
-    if (userModalMode === "add") {
-
-      setUsers((previous) => [
-
-        ...previous,
-
-        {
-          id: Date.now(),
-          ...form,
-          lastLogin: "Just Now",
-        },
-
-      ]);
-
-      return;
-
+  const handleRoleChange = async (user: AdminUser, role: UserRole) => {
+    setActioningId(user.id);
+    setActionError(null);
+    try {
+      await updateUserRole(user.id, role);
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update role");
+    } finally {
+      setActioningId(null);
     }
-
-    if (!selectedUser) return;
-
-    setUsers((previous) =>
-      previous.map((user) =>
-        user.id === selectedUser.id
-          ? {
-              ...user,
-              ...form,
-            }
-          : user
-      )
-    );
-
   };
 
-  /* ----------------------------- */
-  /* Add / Edit Role               */
-  /* ----------------------------- */
-
-  const saveRole = (
-    form: AddRoleForm
-  ) => {
-
-    if (roleModalMode === "add") {
-
-      setRoles((previous) => [
-
-        ...previous,
-
-        {
-          id: Date.now(),
-          users: 0,
-          ...form,
-        },
-
-      ]);
-
-      return;
-
+  const handleToggleStatus = async (user: AdminUser) => {
+    setActioningId(user.id);
+    setActionError(null);
+    try {
+      await updateUserStatus(user.id, !user.is_active);
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setActioningId(null);
     }
-
-    if (!selectedRole) return;
-
-    setRoles((previous) =>
-      previous.map((role) =>
-        role.id === selectedRole.id
-          ? {
-              ...role,
-              ...form,
-            }
-          : role
-      )
-    );
-
   };
-
-    /* ----------------------------- */
-  /* Add / Edit Company            */
-  /* ----------------------------- */
-
-  const saveCompany = (
-    form: AddCompanyForm
-  ) => {
-
-    if (companyModalMode === "add") {
-
-      setCompanies((previous) => [
-
-        ...previous,
-
-        {
-          id: Date.now(),
-          ...form,
-        },
-
-      ]);
-
-      return;
-
-    }
-
-    if (!selectedCompany) return;
-
-    setCompanies((previous) =>
-      previous.map((company) =>
-        company.id === selectedCompany.id
-          ? {
-              ...company,
-              ...form,
-            }
-          : company
-      )
-    );
-
-  };
-
-  /* ----------------------------- */
-  /* View Handlers                 */
-  /* ----------------------------- */
-
-  const openUserView = (
-    user: User
-  ) => {
-
-    setViewType("user");
-    setViewData(user);
-    setShowViewModal(true);
-
-  };
-
-  const openRoleView = (
-    role: Role
-  ) => {
-
-    setViewType("role");
-    setViewData(role);
-    setShowViewModal(true);
-
-  };
-
-  const openCompanyView = (
-    company: Company
-  ) => {
-
-    setViewType("company");
-    setViewData(company);
-    setShowViewModal(true);
-
-  };
-
-  /* ----------------------------- */
-  /* Edit Handlers                 */
-  /* ----------------------------- */
-
-  const editUser = (
-    user: User
-  ) => {
-
-    setSelectedUser(user);
-    setUserModalMode("edit");
-    setShowUserModal(true);
-
-  };
-
-  const editRole = (
-    role: Role
-  ) => {
-
-    setSelectedRole(role);
-    setRoleModalMode("edit");
-    setShowRoleModal(true);
-
-  };
-
-  const editCompany = (
-    company: Company
-  ) => {
-
-    setSelectedCompany(company);
-    setCompanyModalMode("edit");
-    setShowCompanyModal(true);
-
-  };
-
-  /* ----------------------------- */
-  /* Delete Handlers               */
-  /* ----------------------------- */
-
-  const askDeleteUser = (
-    user: User
-  ) => {
-
-    setDeleteType("user");
-    setDeleteId(user.id);
-    setDeleteName(user.name);
-    setShowDeleteModal(true);
-
-  };
-
-  const askDeleteRole = (
-    role: Role
-  ) => {
-
-    setDeleteType("role");
-    setDeleteId(role.id);
-    setDeleteName(role.name);
-    setShowDeleteModal(true);
-
-  };
-
-  const askDeleteCompany = (
-    company: Company
-  ) => {
-
-    setDeleteType("company");
-    setDeleteId(company.id);
-    setDeleteName(company.name);
-    setShowDeleteModal(true);
-
-  };
-
-    /* ----------------------------- */
-  /* Confirm Delete                */
-  /* ----------------------------- */
-
-  const confirmDelete = () => {
-
-    if (deleteId === null) return;
-
-    switch (deleteType) {
-
-      case "user":
-
-        setUsers((previous) =>
-          previous.filter(
-            (user) => user.id !== deleteId
-          )
-        );
-
-        break;
-
-      case "role":
-
-        setRoles((previous) =>
-          previous.filter(
-            (role) => role.id !== deleteId
-          )
-        );
-
-        break;
-
-      case "company":
-
-        setCompanies((previous) =>
-          previous.filter(
-            (company) => company.id !== deleteId
-          )
-        );
-
-        break;
-
-    }
-
-    setShowDeleteModal(false);
-    setDeleteId(null);
-    setDeleteName("");
-
-  };
-
-  /* ----------------------------- */
-  /* Add Button Handlers           */
-  /* ----------------------------- */
-
-  const openAddUser = () => {
-
-    setSelectedUser(null);
-    setUserModalMode("add");
-    setShowUserModal(true);
-
-  };
-
-  const openAddRole = () => {
-
-    setSelectedRole(null);
-    setRoleModalMode("add");
-    setShowRoleModal(true);
-
-  };
-
-  const openAddCompany = () => {
-
-    setSelectedCompany(null);
-    setCompanyModalMode("add");
-    setShowCompanyModal(true);
-
-  };
-
-  /* ----------------------------- */
-  /* Page                          */
-  /* ----------------------------- */
 
   return (
-
     <div className="space-y-6">
-
-      {/* Header */}
-
-      <div className="flex flex-col gap-2">
-
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-          Administration
-        </h1>
-
-        <p className="text-slate-500 dark:text-slate-400">
-          Manage users, roles, companies and activity logs.
-        </p>
-
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Administration</h1>
+        <p className="mt-1 text-slate-500 dark:text-slate-400">Manage users and roles.</p>
       </div>
 
-      {/* Statistics */}
-
-      <AdministrationStats
-        stats={stats}
-      />
-
-      {/* Tabs */}
-
-      <AdministrationTabs
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        userCount={users.length}
-        roleCount={roles.length}
-        companyCount={companies.length}
-        activityCount={logs.length}
-      />
-
-            {/* Users */}
-
-      {activeTab === "users" && (
-
-        <UsersTable
-          users={users}
-          searchTerm={userSearch}
-          onSearchChange={setUserSearch}
-          onAddUser={openAddUser}
-          onView={openUserView}
-          onEdit={editUser}
-          onDelete={askDeleteUser}
-        />
-
+      {actionError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {actionError}
+        </div>
       )}
 
-      {/* Roles */}
-
-      {activeTab === "roles" && (
-
-        <RolesTable
-          roles={roles}
-          searchTerm={roleSearch}
-          onSearchChange={setRoleSearch}
-          onAddRole={openAddRole}
-          onView={openRoleView}
-          onEdit={editRole}
-          onDelete={askDeleteRole}
-        />
-
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          ))}
+        </div>
       )}
 
-      {/* Companies */}
-
-      {activeTab === "companies" && (
-
-        <CompaniesTable
-          companies={companies}
-          searchTerm={companySearch}
-          onSearchChange={setCompanySearch}
-          onAddCompany={openAddCompany}
-          onView={openCompanyView}
-          onEdit={editCompany}
-          onDelete={askDeleteCompany}
-        />
-
+      {isError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          {error instanceof Error ? error.message : "Failed to load users"}
+        </div>
       )}
 
-      {/* Activity Logs */}
+      {!isLoading && !isError && (
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-[#111827]">
+          <table className="w-full">
+            <thead className="bg-slate-50 dark:bg-slate-800">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-semibold">User</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Role</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Joined</th>
+                <th className="px-6 py-4 text-center text-sm font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(users ?? []).map((user) => {
+                const isSelf = user.id === currentUser?.id;
+                return (
+                  <tr key={user.id} className="border-t border-slate-100 dark:border-slate-700">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-sm font-semibold text-violet-600 dark:bg-violet-900/30">
+                          {user.full_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-white">
+                            {user.full_name} {isSelf && <span className="text-xs text-slate-400">(you)</span>}
+                          </p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={user.role}
+                        disabled={isSelf || actioningId === user.id}
+                        onChange={(e) => handleRoleChange(user, e.target.value as UserRole)}
+                        className={`rounded-full border-0 px-3 py-1 text-xs font-semibold disabled:opacity-60 ${ROLE_STYLES[user.role]}`}
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          user.is_active
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                        }`}
+                      >
+                        {user.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => handleToggleStatus(user)}
+                        disabled={isSelf || actioningId === user.id}
+                        title={user.is_active ? "Deactivate" : "Activate"}
+                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-slate-800"
+                      >
+                        {user.is_active ? (
+                          <ShieldOff className="h-4 w-4" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
 
-      {activeTab === "activity" && (
-
-        <ActivityLogsTable
-          logs={logs}
-          searchTerm={activitySearch}
-          onSearchChange={setActivitySearch}
-        />
-
+              {(users ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-14 text-center text-slate-500 dark:text-slate-400">
+                    <Users className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                    No users found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
-
-            {/* Add User Modal */}
-
-      <AddUserModal
-        open={showUserModal}
-        mode={userModalMode}
-        user={selectedUser}
-        onClose={() => setShowUserModal(false)}
-        onSave={saveUser}
-      />
-
-      {/* Add Role Modal */}
-
-      <AddRoleModal
-        open={showRoleModal}
-        mode={roleModalMode}
-        role={selectedRole}
-        onClose={() => setShowRoleModal(false)}
-        onSave={saveRole}
-      />
-
-      {/* Add Company Modal */}
-
-      <AddCompanyModal
-        open={showCompanyModal}
-        mode={companyModalMode}
-        company={selectedCompany}
-        onClose={() => setShowCompanyModal(false)}
-        onSave={saveCompany}
-      />
-
-      {/* View Modal */}
-
-      <ViewModal
-        open={showViewModal}
-        type={viewType}
-        data={viewData}
-        onClose={() => {
-          setShowViewModal(false);
-          setViewData(null);
-        }}
-      />
-
-      {/* Delete Modal */}
-
-      <DeleteModal
-        open={showDeleteModal}
-        type={deleteType}
-        name={deleteName}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setDeleteId(null);
-          setDeleteName("");
-        }}
-        onDelete={confirmDelete}
-      />
-
     </div>
-
   );
 };
 

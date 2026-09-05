@@ -3,7 +3,9 @@ import type { LucideIcon } from "lucide-react";
 interface Props {
   title: string;
   value: string;
-  growth: string;
+  // Week-over-week growth needs a historical snapshot the backend doesn't
+  // capture yet (no time-series table) — omit rather than fake a number.
+  growth?: string;
   color: string;
   icon: LucideIcon;
 }
@@ -35,9 +37,11 @@ const StatCard = ({
             {value}
           </h2>
 
-          <p className="mt-2 text-sm font-semibold text-green-500 dark:text-green-400">
-            ↑ {growth}
-          </p>
+          {growth && (
+            <p className="mt-2 text-sm font-semibold text-green-500 dark:text-green-400">
+              ↑ {growth}
+            </p>
+          )}
         </div>
 
         <div

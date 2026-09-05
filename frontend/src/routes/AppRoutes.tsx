@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 import AuthLayout from "@/layouts/AuthLayout";
+import ProtectedRoute from "@/routes/ProtectedRoute";
 
 import LoginPage from "@/features/authentication/pages/LoginPage";
 import ForgotPassword from "@/features/authentication/pages/ForgotPassword";
@@ -20,24 +21,17 @@ import SettingsPage from "@/features/settings/pages/SettingsPage";
 
 const AppRoutes = () => {
   return (
-    
-      <Routes>
+    <Routes>
+      {/* Authentication Routes */}
+      <Route element={<AuthLayout />}>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Route>
 
-        {/* Authentication Routes */}
-        <Route element={<AuthLayout />}>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/forgot-password"
-            element={<ForgotPassword />}
-          />
-          <Route
-  path="/reset-password"
-  element={<ResetPassword />}
-/>
-        </Route>
-
-        {/* Dashboard Routes */}
+      {/* Dashboard Routes — every route below requires a valid session */}
+      <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/leads" element={<LeadsPage />} />
@@ -50,9 +44,8 @@ const AppRoutes = () => {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
-
-      </Routes>
-    
+      </Route>
+    </Routes>
   );
 };
 
