@@ -1,0 +1,55 @@
+# CODEOWNERS — HireGen AI
+# This file automatically assigns reviewers when a PR touches specific files.
+# Order matters: later rules override earlier ones for the same path.
+
+# ===== Team 1 — Platform & Security =====
+/backend/src/middleware/            @hiregen-aii/team-1-platform-security
+/backend/src/config/                @hiregen-aii/team-1-platform-security
+/backend/src/routes/auth.routes.ts  @hiregen-aii/team-1-platform-security
+/backend/migrations/                @hiregen-aii/team-1-platform-security
+
+# ===== Team 2 — Hiring Intelligence =====
+/backend/src/agents/discovery.agent.ts          @hiregen-aii/team-2-hiring-intelligence
+/backend/src/agents/enrichment.agent.ts         @hiregen-aii/team-2-hiring-intelligence
+/backend/src/agents/research.agent.ts           @hiregen-aii/team-2-hiring-intelligence
+/backend/src/agents/classification.agent.ts     @hiregen-aii/team-2-hiring-intelligence
+/backend/src/repositories/hiring-signals.repo.ts    @hiregen-aii/team-2-hiring-intelligence
+/backend/src/repositories/companies.repo.ts         @hiregen-aii/team-2-hiring-intelligence
+/backend/src/repositories/contacts.repo.ts          @hiregen-aii/team-2-hiring-intelligence
+/backend/src/repositories/company-research.repo.ts  @hiregen-aii/team-2-hiring-intelligence
+/backend/src/repositories/leads.repo.ts             @hiregen-aii/team-2-hiring-intelligence
+/backend/src/routes/hiring-signals.routes.ts    @hiregen-aii/team-2-hiring-intelligence
+/backend/src/routes/leads.routes.ts             @hiregen-aii/team-2-hiring-intelligence
+/n8n-workflows/01-signal-ingestion-poller.json  @hiregen-aii/team-2-hiring-intelligence
+/n8n-workflows/02-career-page-watcher.json      @hiregen-aii/team-2-hiring-intelligence
+/n8n-workflows/03-enrichment-orchestrator.json  @hiregen-aii/team-2-hiring-intelligence
+
+# ===== Team 3 — AI Platform =====
+/backend/src/agents/personalization.agent.ts    @hiregen-aii/team-3-ai-platform
+/backend/src/agents/followup.agent.ts           @hiregen-aii/team-3-ai-platform
+/backend/src/agents/analytics.agent.ts          @hiregen-aii/team-3-ai-platform
+/backend/src/repositories/approval-queue.repo.ts @hiregen-aii/team-3-ai-platform
+
+# ===== Team 4 — Automation & Infrastructure =====
+# NOTE: actual team slug is "team-name-team-4-automation-infra" (extra prefix kept as-is)
+/backend/src/queues/            @hiregen-aii/team-name-team-4-automation-infra
+/backend/src/webhooks/          @hiregen-aii/team-name-team-4-automation-infra
+/backend/Dockerfile             @hiregen-aii/team-name-team-4-automation-infra
+/frontend/Dockerfile            @hiregen-aii/team-name-team-4-automation-infra
+/infra/                         @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/04-approval-reminder.json        @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/05-followup-sequencer.json       @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/06-reply-sentiment-routing.json  @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/07-meeting-booking-sync.json     @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/08-crm-hygiene-sync.json         @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/09-daily-digest.json             @hiregen-aii/team-name-team-4-automation-infra
+/n8n-workflows/10-failure-watchdog.json         @hiregen-aii/team-name-team-4-automation-infra
+
+# ===== Team 5 — Product Experience =====
+# NOTE: actual team slug is "team-name-team-5-product-experience" (extra prefix kept as-is)
+/frontend/  @hiregen-aii/team-name-team-5-product-experience
+
+# ===== Shared / Critical files — Deepak always reviews =====
+/docs/api-contracts.md   @Deepenthusiastic23
+/docs/schema.sql         @Deepenthusiastic23
+/backend/migrations/     @Deepenthusiastic23

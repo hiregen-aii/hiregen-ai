@@ -1,0 +1,305 @@
+{
+  "name": "08-crm-hygiene-sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "56bb006a-bc47-4150-b131-4e143a0be060",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2efa848b-80cd-4280-95a9-8aabf9b14f1c",
+              "name": "email",
+              "value": "Hi Team,  Wednesday at 3 PM works for me.  Regards, John",
+              "type": "string"
+            },
+            {
+              "id": "0d298e5d-fe70-451b-8e41-ee3a6afaf4ed",
+              "name": "sender",
+              "value": "John Smith",
+              "type": "string"
+            },
+            {
+              "id": "71416f1b-ad25-495b-86ef-80ffa260ab01",
+              "name": "company",
+              "value": "Microsoft",
+              "type": "string"
+            },
+            {
+              "id": "bbd6b979-c9ae-41d0-b9df-9cb11715d68d",
+              "name": "sentiment",
+              "value": "Positive",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        208,
+        0
+      ],
+      "id": "0dca3309-ba2a-4042-af4f-95c07878c6ea",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "59a2c95b-1ea4-4595-8016-8714657a0ed9",
+              "leftValue": "={{$json.sentiment}}",
+              "rightValue": "Positive",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "b8ec9233-5445-48f8-ac35-c7d462a68a81",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "703e95c8-dcfb-47bc-98ee-525a5fec9824",
+              "name": "meeting_intent",
+              "value": "true",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        624,
+        -96
+      ],
+      "id": "3f059d4a-5a78-4c65-ad9b-a4769af76c3d",
+      "name": "Detect Meeting Intent"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f9263335-9252-45f1-bc1c-d1543e645b7a",
+              "name": "crm_activity",
+              "value": "Meeting Scheduled",
+              "type": "string"
+            },
+            {
+              "id": "874bb850-0579-4f20-8de7-26390958a4ef",
+              "name": "crm_status",
+              "value": "Open",
+              "type": "string"
+            },
+            {
+              "id": "eea23b9f-6c7e-4c89-a4bf-b714353c5e16",
+              "name": "assigned_to",
+              "value": "Sales Team",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "f786816a-63a4-443c-8082-c8a663676f66",
+      "name": "Create CRM Activity"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bfca42ed-a72b-46c4-98c8-dd7ba5b38014",
+              "name": "notification_channel",
+              "value": "Email",
+              "type": "string"
+            },
+            {
+              "id": "8fdc4cc3-263f-4d9a-aaea-ce28d7c69a3d",
+              "name": "notification_status",
+              "value": "Sent",
+              "type": "string"
+            },
+            {
+              "id": "6b7c8d9e-dee9-4c4e-9a1b-d1831aa15547",
+              "name": "sales_representative",
+              "value": "Akshay Kumar",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "9b13d6dd-a094-4ee3-b1ba-c65f684b1301",
+      "name": "Notify Sales Representative"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f80bb540-f9e9-4f1b-a2ca-f88c41f368ea",
+              "name": "timeline_event",
+              "value": "Meeting Scheduled",
+              "type": "string"
+            },
+            {
+              "id": "b8966229-998b-4843-bd7c-67b71d490ad0",
+              "name": "timeline_status",
+              "value": "Updated",
+              "type": "string"
+            },
+            {
+              "id": "bb45fd8d-3acb-4b10-b113-d28b2aec262c",
+              "name": "updated_by",
+              "value": "Workflow 8",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1248,
+        -96
+      ],
+      "id": "4f18bd3e-11c4-412a-84bb-23133b41b0a9",
+      "name": "Update Timeline"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Detect Meeting Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Meeting Intent": {
+      "main": [
+        [
+          {
+            "node": "Create CRM Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create CRM Activity": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales Representative",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Sales Representative": {
+      "main": [
+        [
+          {
+            "node": "Update Timeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7e98c31f-6d4a-4dcb-a80d-bb420a7160b4",
+  "meta": {
+    "instanceId": "fa687db547e93cdc201d92cafc3462a28fbf40cde55a8a634a939e3b378800ee"
+  },
+  "nodeGroups": [],
+  "id": "7Tn4Y1bueOeCnZvg",
+  "tags": []
+}
