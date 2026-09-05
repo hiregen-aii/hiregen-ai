@@ -40,7 +40,7 @@ const NewCampaignModal = ({
     key: keyof CampaignFormData,
     value: string | number | boolean
   ) => {
-    setFormData((prev) => ({
+    setFormData((prev: CampaignFormData) => ({
       ...prev,
       [key]: value,
     }));

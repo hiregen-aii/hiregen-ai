@@ -18,7 +18,7 @@ function verifyToken(request, reply, done) {
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET)
-    request.user = decoded
+    request.user = { ...decoded, id: decoded.sub }
     done()
   } catch (err) {
     reply.code(401).send({

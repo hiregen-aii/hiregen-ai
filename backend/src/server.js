@@ -128,9 +128,10 @@ fastify.setNotFoundHandler((request, reply) => {
 async function seedAdminUser() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@hiregen.ai'
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123'
+  const adminName = process.env.ADMIN_NAME || 'Anuj Mishra'
   const passwordHash = await bcrypt.hash(adminPassword, 10)
 
-  await upsertAdminUser(adminEmail, passwordHash, 'System Admin', 'ADMIN')
+  await upsertAdminUser(adminEmail, passwordHash, adminName, 'ADMIN')
   console.log(`[AUTH] Admin seed ensured for ${adminEmail}`)
 }
 

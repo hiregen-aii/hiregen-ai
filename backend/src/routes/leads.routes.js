@@ -12,6 +12,7 @@ const {
   getLeadById,
   updateLead,
   researchLead,
+  deleteLead,
 } = require("../controllers/leads.controller");
 const { getLeadTimelineHandler } = require("../controllers/timeline.controller");
 
@@ -43,6 +44,12 @@ module.exports = async function (fastify) {
     "/:id",
     { preHandler: requireRole(["ADMIN", "MANAGER", "SALES_REP"]) },
     updateLead
+  );
+
+  fastify.delete(
+    "/:id",
+    { preHandler: requireRole(["ADMIN", "MANAGER", "SALES_REP"]) },
+    deleteLead
   );
 
   fastify.post(

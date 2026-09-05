@@ -15,6 +15,7 @@ interface AuthState {
   logout: () => void;
   refreshAccessToken: () => Promise<string | null>;
   clearError: () => void;
+  updateUser: (partial: Partial<AuthUser>) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -73,6 +74,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       clearError: () => set({ error: null }),
+
+      updateUser: (partial) => {
+        const current = get().user;
+        if (current) {
+          set({ user: { ...current, ...partial } });
+        }
+      },
     }),
     {
       name: "hiregen-auth", // localStorage key

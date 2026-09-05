@@ -4,6 +4,7 @@ const {
   loginHandler,
   refreshHandler,
   logoutHandler,
+  getProfileHandler,
   updateProfileHandler
 } = require('../controllers/auth.controller')
 
@@ -38,8 +39,16 @@ module.exports = async function authRoutes(fastify) {
     logoutHandler
   )
 
-  // NEW — self-service profile edit (name only). Requires a valid session;
-  // no role restriction beyond "you must be logged in as yourself".
+  // Get logged-in user profile from PostgreSQL
+  fastify.get(
+    '/me',
+    {
+      preHandler: [verifyToken]
+    },
+    getProfileHandler
+  )
+
+  // Update logged-in user profile in PostgreSQL
   fastify.patch(
     '/me',
     {

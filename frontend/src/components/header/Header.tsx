@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 
 import { useNotifications } from "@/context/NotificationContext";
 import { useProfile } from "@/context/ProfileContext";
+import { useAuthStore } from "@/store/auth-store";
 
 import {
   Bell,
@@ -13,6 +14,7 @@ import {
   LogOut,
   ChevronDown,
   Menu,
+  Settings,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -78,11 +80,13 @@ const Header = ({
   }, []);
 
   const handleLogout = () => {
-
+    useAuthStore.getState().logout();
     localStorage.removeItem("token");
-
-    navigate("/");
-
+    localStorage.removeItem("hiregen_profile");
+    localStorage.removeItem("hiregen_skills");
+    localStorage.removeItem("hiregen_activities");
+    setOpen(false);
+    navigate("/login");
   };
 
   return (
@@ -207,31 +211,19 @@ const Header = ({
               ) : (
 
                 <span className="text-base font-bold text-violet-600 dark:text-violet-300">
-
-                  {profile.name.charAt(0).toUpperCase()}
-
+                  {(profile?.name || "U").charAt(0).toUpperCase()}
                 </span>
-
               )}
-
             </div>
 
             {/* Profile Info */}
-
             <div className="hidden text-left md:block">
-
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-
-                {profile.name}
-
+                {profile?.name || "User"}
               </h3>
-
               <p className="text-sm text-slate-500 dark:text-slate-400">
-
-                {profile.designation}
-
+                {profile?.designation || "Member"}
               </p>
-
             </div>
 
             <ChevronDown className="hidden h-4 w-4 text-slate-500 md:block" />
@@ -258,7 +250,17 @@ const Header = ({
                 <User className="h-5 w-5" />
 
                 Profile
+              </button>
 
+              <button
+                onClick={() => {
+                  navigate("/settings");
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <Settings className="h-5 w-5" />
+                Settings
               </button>
 
               <button

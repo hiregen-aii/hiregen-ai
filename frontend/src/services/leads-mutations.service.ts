@@ -4,13 +4,19 @@ import type { Lead, LeadStage } from "@/types/lead";
 
 // POST /api/v1/leads — ADMIN, MANAGER only (see backend/src/routes/leads.routes.js)
 export interface CreateLeadPayload {
-  hiringSignalId: string;
-  companyId: string;
+  hiringSignalId?: string;
+  companyId?: string;
   primaryContactId?: string | null;
   ownerId?: string | null;
   stage?: LeadStage;
   hiringType?: string | null;
   fitScore?: number;
+  companyName?: string;
+  companyDomain?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactTitle?: string;
+  roleTitle?: string;
 }
 
 export async function createLead(payload: CreateLeadPayload): Promise<Lead> {
@@ -48,6 +54,15 @@ export async function triggerResearch(id: string): Promise<unknown> {
     const { data } = await api.post<ApiEnvelope<unknown>>(`/leads/${id}/research`);
     return data.data;
   } catch (err) {
-    throw new Error(extractErrorMessage(err, "Research request failed"));
+    throw new Error(extractErrorMessage(err, "Failed to run company research"));
+  }
+}
+
+// DELETE /api/v1/leads/:id — ADMIN, MANAGER, SALES_REP
+export async function deleteLead(id: string): Promise<void> {
+  try {
+    await api.delete<ApiEnvelope<null>>(`/leads/${id}`);
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, "Failed to delete lead"));
   }
 }

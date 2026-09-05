@@ -7,11 +7,14 @@ import { useAuthStore } from "@/store/auth-store";
 import { createCampaign, updateCampaignStatus, deleteCampaign } from "@/services/campaigns.service";
 import type { Campaign, CampaignStatus } from "@/types/campaign";
 
-const STATUS_STYLES: Record<CampaignStatus, string> = {
+const STATUS_STYLES: Partial<Record<CampaignStatus, string>> = {
   DRAFT: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
   ACTIVE: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   PAUSED: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   ARCHIVED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  Active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  Paused: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  Completed: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
 };
 
 const CampaignsPage = () => {
@@ -49,10 +52,10 @@ const CampaignsPage = () => {
   };
 
   const handleStatusChange = async (campaign: Campaign, status: CampaignStatus) => {
-    setActioningId(campaign.id);
+    setActioningId(String(campaign.id));
     setActionError(null);
     try {
-      await updateCampaignStatus(campaign.id, status);
+      await updateCampaignStatus(String(campaign.id), status);
       await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to update campaign");
@@ -62,10 +65,10 @@ const CampaignsPage = () => {
   };
 
   const handleDelete = async (campaign: Campaign) => {
-    setActioningId(campaign.id);
+    setActioningId(String(campaign.id));
     setActionError(null);
     try {
-      await deleteCampaign(campaign.id);
+      await deleteCampaign(String(campaign.id));
       await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to delete campaign");

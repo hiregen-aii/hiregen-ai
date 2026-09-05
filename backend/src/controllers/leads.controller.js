@@ -2,6 +2,7 @@
 // Built by Akshita; renamed to match project convention (kebab-case +
 // .controller.js) and wired to the real Research Agent (2.4, Arpita) below.
 
+const pool = require("../config/db");
 const {
   createLead,
   getAllLeads,
@@ -9,24 +10,82 @@ const {
   updateLeadStage,
   updateLeadOwner,
   updateLeadScore,
+  deleteLead,
 } = require("../repositories/leads.repository");
 
 const AppError = require("../utils/AppError");
 const { runResearchPipeline } = require("../agents/research.agent");
 const { createNotification } = require("../repositories/notifications.repository");
 
-// Create Lead
+// Create Lead (supports both explicit foreign IDs and direct manual lead creation)
 const createLeadHandler = async (request, reply) => {
   try {
-    const {
+    let {
       hiringSignalId,
       companyId,
       primaryContactId,
       ownerId,
-      stage,
-      hiringType,
-      fitScore,
-    } = request.body;
+      stage = "NEW",
+      hiringType = "FULL_TIME",
+      fitScore = 85,
+      // Manual lead fields
+      companyName,
+      companyDomain,
+      contactName,
+      contactEmail,
+      contactTitle,
+      roleTitle,
+    } = request.body || {};
+
+    ownerId = ownerId || request.user?.id || null;
+
+    // Auto-resolve or create company if not provided directly
+    if (!companyId && companyName) {
+      const cleanName = companyName.trim();
+      const domain = (companyDomain && companyDomain.trim()) || (cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com');
+      const compRes = await pool.query(
+        `INSERT INTO companies (name, domain)
+         VALUES ($1, $2)
+         ON CONFLICT (domain) DO UPDATE SET name = EXCLUDED.name
+         RETURNING id;`,
+        [cleanName, domain]
+      );
+      companyId = compRes.rows[0].id;
+    }
+
+    // Auto-resolve or create contact if provided
+    if (!primaryContactId && contactName && companyId) {
+      const email = (contactEmail && contactEmail.trim()) || `contact@${companyDomain || 'company.com'}`;
+      const contactRes = await pool.query(
+        `INSERT INTO contacts (company_id, full_name, title, email, verified)
+         VALUES ($1, $2, $3, $4, true)
+         ON CONFLICT (normalized_email) DO UPDATE 
+         SET full_name = EXCLUDED.full_name, title = EXCLUDED.title
+         RETURNING id;`,
+        [companyId, contactName.trim(), contactTitle || 'Talent Acquisition', email]
+      );
+      primaryContactId = contactRes.rows[0]?.id || null;
+    }
+
+    // Auto-generate hiring signal if not provided
+    if (!hiringSignalId && companyId) {
+      const title = roleTitle || 'Software Engineer';
+      const dedupeKey = `manual-${companyId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const sigRes = await pool.query(
+        `INSERT INTO hiring_signals (company_id, source, role_title, hiring_type, dedupe_key, status)
+         VALUES ($1, 'manual', $2, $3, $4, 'QUALIFIED')
+         RETURNING id;`,
+        [companyId, title, hiringType, dedupeKey]
+      );
+      hiringSignalId = sigRes.rows[0].id;
+    }
+
+    if (!companyId || !hiringSignalId) {
+      return reply.code(400).send({
+        success: false,
+        message: "Company name or companyId is required to create a lead.",
+      });
+    }
 
     const lead = await createLead(
       hiringSignalId,
@@ -35,7 +94,7 @@ const createLeadHandler = async (request, reply) => {
       ownerId,
       stage,
       hiringType,
-      fitScore
+      parseFloat(fitScore) || 85
     );
 
     return reply.code(201).send({
@@ -184,10 +243,30 @@ const researchLeadHandler = async (request, reply) => {
   }
 };
 
+// Delete Lead
+const deleteLeadHandler = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    await deleteLead(id);
+    return reply.send({
+      success: true,
+      message: "Lead deleted successfully",
+    });
+  } catch (err) {
+    request.log.error(err);
+    const statusCode = err.statusCode || 500;
+    return reply.code(statusCode).send({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 module.exports = {
   createLead: createLeadHandler,
   getAllLeads: getAllLeadsHandler,
   getLeadById: getLeadByIdHandler,
   updateLead: updateLeadHandler,
   researchLead: researchLeadHandler,
+  deleteLead: deleteLeadHandler,
 };

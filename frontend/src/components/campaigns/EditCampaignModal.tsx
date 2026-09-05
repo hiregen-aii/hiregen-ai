@@ -43,12 +43,12 @@ const EditCampaignModal = ({
     if (campaign) {
       setFormData({
         name: campaign.name,
-        hiringType: campaign.hiringType,
-        template: campaign.template,
-        steps: campaign.steps,
-        delay: campaign.delay,
+        hiringType: (campaign.hiringType as HiringType) || "Intern",
+        template: campaign.template || campaignTemplates[0],
+        steps: campaign.steps ?? 3,
+        delay: campaign.delay ?? 3,
         approvalRequired:
-          campaign.approvalRequired,
+          campaign.approvalRequired ?? true,
       });
     }
   }, [campaign]);
@@ -59,7 +59,7 @@ const EditCampaignModal = ({
     key: keyof CampaignFormData,
     value: string | number | boolean
   ) => {
-    setFormData((prev) => ({
+    setFormData((prev: CampaignFormData) => ({
       ...prev,
       [key]: value,
     }));

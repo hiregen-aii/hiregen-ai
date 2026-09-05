@@ -46,9 +46,7 @@ const ProfileHero = ({
     ) : (
 
       <span className="text-5xl font-bold text-violet-700 dark:text-violet-300">
-
-        {profile.name.charAt(0).toUpperCase()}
-
+        {(profile?.name || "U").charAt(0).toUpperCase()}
       </span>
 
     )}

@@ -44,12 +44,15 @@ const createCampaignHandler = async (request, reply) => {
       throw new AppError("name is required", 400);
     }
 
+    const normalizedStatus = status ? status.toUpperCase() : "ACTIVE";
+    const normalizedHiringType = hiringType ? hiringType.toUpperCase().replace(/\s+/g, "_") : null;
+
     const campaign = await createCampaign(
       name,
-      hiringType,
+      normalizedHiringType,
       templateReference,
       isActive ?? true,
-      status || "Active"
+      normalizedStatus
     );
 
     return reply.code(201).send({
@@ -68,7 +71,10 @@ const updateCampaignHandler = async (request, reply) => {
     const { id } = request.params;
     const { name, hiringType, templateReference, isActive, status } = request.body;
 
-    const campaign = await updateCampaign(id, name, hiringType, templateReference, isActive, status);
+    const normalizedStatus = status ? status.toUpperCase() : undefined;
+    const normalizedHiringType = hiringType ? hiringType.toUpperCase().replace(/\s+/g, "_") : undefined;
+
+    const campaign = await updateCampaign(id, name, normalizedHiringType, templateReference, isActive, normalizedStatus);
 
     if (!campaign) {
       throw new AppError("Campaign not found", 404);

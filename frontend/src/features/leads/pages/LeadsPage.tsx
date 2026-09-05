@@ -4,12 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNotifications } from "@/context/NotificationContext";
 import { useAuthStore } from "@/store/auth-store";
 import { useEnrichedLeads, type EnrichedLead } from "@/features/leads/hooks/useEnrichedLeads";
-import { updateLead } from "@/services/leads-mutations.service";
+import { updateLead, createLead, deleteLead } from "@/services/leads-mutations.service";
+import type { LeadStage } from "@/types/lead";
 
 import LeadStats from "@/components/leads/LeadStats";
 import LeadSearchBar from "@/components/leads/LeadSearchBar";
 import LeadsTable from "@/components/leads/LeadsTable";
 import LeadDetails from "@/components/leads/LeadDetails";
+import AddLeadModal, { type NewLeadFormData } from "@/components/leads/AddLeadModal";
+import EditLeadModal from "@/components/leads/EditLeadModal";
 import Toast from "@/components/common/Toast";
 
 const LeadsPage = () => {
@@ -21,6 +24,8 @@ const LeadsPage = () => {
   const { enrichedLeads, isLoading, isError, error } = useEnrichedLeads();
 
   const [selectedLead, setSelectedLead] = useState<EnrichedLead | null>(null);
+  const [editingLead, setEditingLead] = useState<EnrichedLead | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
@@ -86,19 +91,95 @@ const LeadsPage = () => {
   };
 
   const handleAddLeadClick = () => {
-    showToast(
-      "Coming soon",
-      "Adding a lead needs a company + hiring-signal picker — not wired up yet.",
-      "edit"
-    );
+    if (!canManageLeads) {
+      showToast("Not allowed", "Your role cannot create leads.", "delete");
+      return;
+    }
+    setAddModalOpen(true);
   };
 
-  const handleDeleteLeadClick = (lead: EnrichedLead) => {
-    showToast("Not supported", `The backend has no delete endpoint for leads (${lead.company}).`, "delete");
+  const handleCreateLead = async (formData: NewLeadFormData) => {
+    try {
+      await createLead({
+        companyName: formData.companyName,
+        companyDomain: formData.companyDomain,
+        contactName: formData.contactName,
+        contactEmail: formData.contactEmail,
+        contactTitle: formData.contactTitle,
+        roleTitle: formData.roleTitle,
+        hiringType: formData.hiringType,
+        stage: formData.stage,
+        fitScore: formData.fitScore,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+      ]);
+
+      addNotification({
+        title: "Lead Created",
+        message: `Lead for ${formData.companyName} added to pipeline.`,
+        type: "success",
+      });
+
+      showToast("Lead Created", `${formData.companyName} has been added successfully.`, "success");
+    } catch (err) {
+      showToast("Creation failed", err instanceof Error ? err.message : "Could not create lead", "delete");
+      throw err;
+    }
+  };
+
+  const handleDeleteLeadClick = async (lead: EnrichedLead) => {
+    if (!canManageLeads) {
+      showToast("Not allowed", "Your role cannot delete leads.", "delete");
+      return;
+    }
+
+    try {
+      await deleteLead(lead.id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+      ]);
+      addNotification({
+        title: "Lead Deleted",
+        message: `${lead.company} was removed from pipeline.`,
+        type: "delete",
+      });
+      showToast("Lead Deleted", `${lead.company} has been deleted.`, "delete");
+      if (selectedLead?.id === lead.id) {
+        setSelectedLead(null);
+      }
+    } catch (err) {
+      showToast("Delete failed", err instanceof Error ? err.message : "Could not delete lead", "delete");
+    }
   };
 
   const handleEditLeadClick = (lead: EnrichedLead) => {
-    showToast("Coming soon", `Editing ${lead.company} — full edit form isn't wired up yet.`, "edit");
+    if (!canManageLeads) {
+      showToast("Not allowed", "Your role cannot edit leads.", "delete");
+      return;
+    }
+    setEditingLead(lead);
+  };
+
+  const handleUpdateLead = async (leadId: string, data: { stage: LeadStage; fitScore: number }) => {
+    try {
+      await updateLead(leadId, { stage: data.stage, fitScore: data.fitScore });
+      await queryClient.invalidateQueries({ queryKey: ["leads"] });
+      addNotification({
+        title: "Lead Updated",
+        message: `Lead details updated successfully.`,
+        type: "edit",
+      });
+      showToast("Lead Updated", "Lead details saved successfully.", "edit");
+    } catch (err) {
+      showToast("Update failed", err instanceof Error ? err.message : "Could not update lead", "delete");
+      throw err;
+    }
   };
 
   if (isError) {
@@ -157,6 +238,19 @@ const LeadsPage = () => {
           </div>
         </div>
       </div>
+
+      <AddLeadModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSubmit={handleCreateLead}
+      />
+
+      <EditLeadModal
+        lead={editingLead}
+        open={!!editingLead}
+        onClose={() => setEditingLead(null)}
+        onSubmit={handleUpdateLead}
+      />
 
       <Toast
         open={toastOpen}

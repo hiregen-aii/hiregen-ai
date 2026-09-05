@@ -24,3 +24,21 @@ export async function refreshRequest(refreshToken: string): Promise<LoginRespons
 export async function logoutRequest(refreshToken: string): Promise<void> {
   await api.post("/auth/logout", { refreshToken });
 }
+
+export async function getOwnProfileRequest(): Promise<any> {
+  try {
+    const { data } = await api.get<ApiEnvelope<any>>("/auth/me");
+    return data.data;
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, "Failed to load profile"));
+  }
+}
+
+export async function updateOwnProfileRequest(profileData: Record<string, any>): Promise<any> {
+  try {
+    const { data } = await api.patch<ApiEnvelope<any>>("/auth/me", profileData);
+    return data.data;
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, "Failed to update profile"));
+  }
+}
