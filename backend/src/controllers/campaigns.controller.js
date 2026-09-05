@@ -71,10 +71,13 @@ const updateCampaignHandler = async (request, reply) => {
     const { id } = request.params;
     const { name, hiringType, templateReference, isActive, status } = request.body;
 
-    const normalizedStatus = status ? status.toUpperCase() : undefined;
-    const normalizedHiringType = hiringType ? hiringType.toUpperCase().replace(/\s+/g, "_") : undefined;
+    let calculatedIsActive = isActive;
+    if (calculatedIsActive === undefined && normalizedStatus) {
+      if (normalizedStatus === "ACTIVE") calculatedIsActive = true;
+      else if (normalizedStatus === "PAUSED" || normalizedStatus === "ARCHIVED") calculatedIsActive = false;
+    }
 
-    const campaign = await updateCampaign(id, name, normalizedHiringType, templateReference, isActive, normalizedStatus);
+    const campaign = await updateCampaign(id, name, normalizedHiringType, templateReference, calculatedIsActive, normalizedStatus);
 
     if (!campaign) {
       throw new AppError("Campaign not found", 404);

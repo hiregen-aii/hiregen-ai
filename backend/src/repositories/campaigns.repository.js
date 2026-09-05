@@ -39,15 +39,22 @@ const updateCampaign = async (id, name, hiringType, templateReference, isActive,
   const result = await pool.query(
     `UPDATE campaigns
      SET
-       name = $2,
-       hiring_type = $3,
-       template_reference = $4,
-       is_active = $5,
-       status = $6,
+       name = COALESCE($2, name),
+       hiring_type = COALESCE($3::hiring_type, hiring_type),
+       template_reference = COALESCE($4, template_reference),
+       is_active = COALESCE($5, is_active),
+       status = COALESCE($6::campaign_status, status),
        updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
-    [id, name, hiringType, templateReference, isActive, status]
+    [
+      id,
+      name ?? null,
+      hiringType ?? null,
+      templateReference ?? null,
+      isActive ?? null,
+      status ?? null,
+    ]
   )
 
   return result.rows[0]
