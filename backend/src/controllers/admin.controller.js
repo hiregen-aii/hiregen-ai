@@ -1,6 +1,9 @@
+const bcrypt = require('bcrypt')
 const { success, error } = require('../utils/response')
 const {
   getAllUsers,
+  findByEmail,
+  createUser,
   updateUserRole,
   updateUserStatus
 } = require('../repositories/user.repository')
@@ -23,6 +26,42 @@ async function listUsersHandler(request, reply) {
     return reply.code(200).send(success(users, request.id))
   } catch (err) {
     return reply.code(500).send(error('Unable to load users', request.id))
+  }
+}
+
+// NEW — POST /admin/users (Admin creates user and assigns initial role)
+async function createUserHandler(request, reply) {
+  try {
+    const { email, fullName, password, role } = request.body || {}
+
+    if (!email || !fullName || !password || !role) {
+      return reply.code(400).send(error('email, fullName, password, and role are required', request.id))
+    }
+
+    if (!VALID_ROLES.includes(role)) {
+      return reply.code(400).send(error(`role must be one of: ${VALID_ROLES.join(', ')}`, request.id))
+    }
+
+    const existing = await findByEmail(email)
+    if (existing) {
+      return reply.code(409).send(error('User with this email already exists', request.id))
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10)
+    const newUser = await createUser(email, passwordHash, fullName, role)
+
+    const safeUser = {
+      id: newUser.id,
+      email: newUser.email,
+      full_name: newUser.full_name,
+      role: newUser.role,
+      is_active: newUser.is_active,
+      created_at: newUser.created_at
+    }
+
+    return reply.code(201).send(success(safeUser, request.id))
+  } catch (err) {
+    return reply.code(500).send(error('Unable to create user', request.id))
   }
 }
 
@@ -75,6 +114,7 @@ async function updateUserStatusHandler(request, reply) {
 module.exports = {
   adminProfileHandler,
   listUsersHandler,
+  createUserHandler,
   updateUserRoleHandler,
   updateUserStatusHandler
 }

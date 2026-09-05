@@ -3,6 +3,7 @@ const { requireRole } = require('../middleware/authorize')
 const {
   adminProfileHandler,
   listUsersHandler,
+  createUserHandler,
   updateUserRoleHandler,
   updateUserStatusHandler
 } = require('../controllers/admin.controller')
@@ -23,6 +24,15 @@ module.exports = async function adminRoutes(fastify) {
       preHandler: [verifyToken, requireRole(['ADMIN'])]
     },
     listUsersHandler
+  )
+
+  // NEW — Administration page: create a new user and assign initial role
+  fastify.post(
+    '/users',
+    {
+      preHandler: [verifyToken, requireRole(['ADMIN'])]
+    },
+    createUserHandler
   )
 
   // NEW — Administration page: change a user's role

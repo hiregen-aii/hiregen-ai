@@ -33,3 +33,20 @@ export async function updateUserStatus(id: string, isActive: boolean): Promise<A
     throw new Error(extractErrorMessage(err, "Failed to update status"));
   }
 }
+
+export interface CreateUserData {
+  fullName: string;
+  email: string;
+  password: string;
+  role: UserRole;
+}
+
+// POST /api/v1/admin/users — ADMIN only
+export async function createAdminUser(userData: CreateUserData): Promise<AdminUser> {
+  try {
+    const { data } = await api.post<ApiEnvelope<AdminUser>>("/admin/users", userData);
+    return data.data;
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, "Failed to create user"));
+  }
+}
