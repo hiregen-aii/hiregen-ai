@@ -4,4 +4,21 @@ dist/
 *.log
 *.docx
 .DS_Store
+Thumbs.db
+.history/
+.vscode/
+.idea/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
 
