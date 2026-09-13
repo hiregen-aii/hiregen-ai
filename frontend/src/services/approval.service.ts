@@ -12,12 +12,25 @@ export async function fetchApprovals(): Promise<Approval[]> {
   }
 }
 
-// PATCH /api/v1/approval/:id/status — ADMIN, MANAGER only
+// PATCH /api/v1/approval/:id/status — ADMIN, MANAGER, SALES_REP
 export async function updateApprovalStatus(id: string, status: ApprovalStatus): Promise<Approval> {
   try {
     const { data } = await api.patch<ApiEnvelope<Approval>>(`/approval/${id}/status`, { status });
     return data.data;
   } catch (err) {
     throw new Error(extractErrorMessage(err, "Failed to update approval"));
+  }
+}
+
+// PATCH /api/v1/approval/:id — Update draft subject and body
+export async function updateApprovalDraftContent(id: string, draftSubject: string, draftBody: string): Promise<Approval> {
+  try {
+    const { data } = await api.patch<ApiEnvelope<Approval>>(`/approval/${id}`, {
+      draftSubject,
+      draftBody,
+    });
+    return data.data;
+  } catch (err) {
+    throw new Error(extractErrorMessage(err, "Failed to update draft content"));
   }
 }

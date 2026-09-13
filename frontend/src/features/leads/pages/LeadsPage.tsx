@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useNotifications } from "@/context/NotificationContext";
@@ -13,7 +13,12 @@ import LeadsTable from "@/components/leads/LeadsTable";
 import LeadDetails from "@/components/leads/LeadDetails";
 import AddLeadModal, { type NewLeadFormData } from "@/components/leads/AddLeadModal";
 import EditLeadModal from "@/components/leads/EditLeadModal";
+import MeetingSchedulerModal from "@/components/leads/MeetingSchedulerModal";
+import { Download, RefreshCw, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
 import Toast from "@/components/common/Toast";
+import { downloadLeadsExport, downloadBothLeadsExport, triggerDeepScrape } from "@/services/export.service";
+import { scheduleMeeting } from "@/services/meetings.service";
+import { extractErrorMessage } from "@/services/api";
 
 const LeadsPage = () => {
   const { addNotification } = useNotifications();
@@ -25,6 +30,7 @@ const LeadsPage = () => {
 
   const [selectedLead, setSelectedLead] = useState<EnrichedLead | null>(null);
   const [editingLead, setEditingLead] = useState<EnrichedLead | null>(null);
+  const [schedulingLead, setSchedulingLead] = useState<EnrichedLead | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   const [toastOpen, setToastOpen] = useState(false);
@@ -45,6 +51,128 @@ const LeadsPage = () => {
     setToastOpen(true);
   };
 
+  const [isScraping, setIsScraping] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const detailsPanelRef = useRef<HTMLDivElement>(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    if (exportMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [exportMenuOpen]);
+
+  // Scroll details panel back to top when selecting a lead
+  useEffect(() => {
+    if (selectedLead && detailsPanelRef.current) {
+      detailsPanelRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [selectedLead?.id]);
+
+  const handleDeepScrape = async () => {
+    setIsScraping(true);
+    try {
+      const stats = await triggerDeepScrape();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+        queryClient.invalidateQueries({ queryKey: ["approvals"] }),
+      ]);
+      if (stats.newlyAdded > 0) {
+        showToast(
+          "New Leads Ingested",
+          `Successfully added ${stats.newlyAdded} new verified ${stats.newlyAdded === 1 ? "lead" : "leads"} to your pipeline.`,
+          "success"
+        );
+        addNotification({
+          title: "Lead Sync Completed",
+          message: `Ingested ${stats.newlyAdded} new verified leads across active market signals.`,
+          type: "success",
+        });
+      } else {
+        showToast(
+          "Pipeline Up to Date",
+          "All scanned market signals are already synced. Your candidate pipeline is fully up to date.",
+          "success"
+        );
+        addNotification({
+          title: "Pipeline Up to Date",
+          message: "All scanned public hiring signals are already present in your active pipeline.",
+          type: "success",
+        });
+      }
+    } catch (err) {
+      showToast(
+        "Sync Failed",
+        extractErrorMessage(err, "Lead sync service encountered an issue"),
+        "delete"
+      );
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  const handleExportBoth = async () => {
+    setIsExporting(true);
+    try {
+      await downloadBothLeadsExport({
+        search: search || undefined,
+        status: statusFilter !== "All" ? statusFilter : undefined,
+        hiringType: typeFilter !== "All" ? typeFilter : undefined,
+        minScore: scoreFilter !== "All" ? parseInt(scoreFilter, 10) : undefined,
+      });
+      showToast(
+        "Export Complete",
+        "Both CSV and Excel (.xlsx) workbooks downloaded successfully.",
+        "success"
+      );
+    } catch (err) {
+      showToast(
+        "Export Failed",
+        err instanceof Error ? err.message : "Failed to export leads",
+        "delete"
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportLeads = async (format: "csv" | "xlsx") => {
+    setIsExporting(true);
+    try {
+      await downloadLeadsExport(format, {
+        search: search || undefined,
+        status: statusFilter !== "All" ? statusFilter : undefined,
+        hiringType: typeFilter !== "All" ? typeFilter : undefined,
+        minScore: scoreFilter !== "All" ? parseInt(scoreFilter, 10) : undefined,
+      });
+      showToast(
+        "Export Complete",
+        `Leads exported as ${format.toUpperCase()} successfully.`,
+        "success"
+      );
+    } catch (err) {
+      showToast(
+        "Export Failed",
+        err instanceof Error ? err.message : "Failed to export leads",
+        "delete"
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const filteredLeads = useMemo(() => {
     return enrichedLeads.filter((lead) => {
       const q = search.toLowerCase();
@@ -61,32 +189,50 @@ const LeadsPage = () => {
         (scoreFilter === "80+" && lead.score >= 80) ||
         (scoreFilter === "90+" && lead.score >= 90);
 
-      // NOTE: "source" isn't resolvable from /leads alone (would need the
-      // linked hiring_signal, which is an ADMIN/MANAGER-only endpoint) —
-      // the source filter is a no-op for now until that's wired up.
-      return matchesSearch && matchesStatus && matchesType && matchesScore;
-    });
-  }, [enrichedLeads, search, statusFilter, typeFilter, scoreFilter]);
+      const matchesSource =
+        source === "All Sources" ||
+        (lead.source && lead.source.toLowerCase().includes(source.toLowerCase())) ||
+        (source === "LinkedIn" && (!lead.source || lead.source.toLowerCase().includes("linkedin")));
 
-  // Real action: mark a lead as having a meeting booked via PATCH /leads/:id.
-  // There's no `meetings` table/endpoint on the backend — this updates the
-  // lead's stage, it doesn't create a calendar event.
-  const handleMarkMeetingBooked = async (lead: EnrichedLead) => {
+      return matchesSearch && matchesSource && matchesStatus && matchesType && matchesScore;
+    });
+  }, [enrichedLeads, search, source, statusFilter, typeFilter, scoreFilter]);
+
+  // Open meeting scheduler modal for lead
+  const handleMarkMeetingBooked = (lead: EnrichedLead) => {
     if (!canManageLeads) {
-      showToast("Not allowed", "Your role can't update lead stages.", "delete");
+      showToast("Not allowed", "Your role can't schedule meetings.", "delete");
       return;
     }
+    setSchedulingLead(lead);
+  };
+
+  const handleConfirmSchedule = async (
+    date: string,
+    time: string,
+    link: string,
+    notes: string
+  ) => {
+    if (!schedulingLead) return;
     try {
-      await updateLead(lead.id, { stage: "MEETING_BOOKED" });
+      await scheduleMeeting({
+        leadId: schedulingLead.id,
+        date,
+        time,
+        link,
+        notes,
+      });
       await queryClient.invalidateQueries({ queryKey: ["leads"] });
       addNotification({
-        title: "Meeting Booked",
-        message: `${lead.company} marked as Meeting Booked.`,
+        title: "Meeting Scheduled",
+        message: `Meeting with ${schedulingLead.company} booked for ${date} at ${time}.`,
         type: "meeting",
       });
-      showToast("Meeting Booked", `${lead.company} marked as Meeting Booked.`, "meeting");
+      showToast("Meeting Scheduled", `Meeting with ${schedulingLead.company} booked successfully.`, "meeting");
     } catch (err) {
-      showToast("Update failed", err instanceof Error ? err.message : "Could not update lead", "delete");
+      showToast("Scheduling Failed", err instanceof Error ? err.message : "Could not schedule meeting", "delete");
+    } finally {
+      setSchedulingLead(null);
     }
   };
 
@@ -193,11 +339,76 @@ const LeadsPage = () => {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Lead Management</h1>
-          <p className="mt-1 text-slate-500 dark:text-slate-400">
-            Manage recruitment leads and outreach campaigns.
-          </p>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Lead Management</h1>
+            <p className="mt-1 text-slate-500 dark:text-slate-400">
+              Manage recruitment leads and outreach campaigns.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Sync Live Leads Trigger */}
+            <button
+              onClick={handleDeepScrape}
+              disabled={isScraping}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 disabled:opacity-50 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200 dark:hover:bg-slate-800"
+              title="Sync live hiring signals from public job boards"
+            >
+              <RefreshCw size={14} className={isScraping ? "animate-spin text-violet-600" : "text-violet-600"} />
+              <span>{isScraping ? "Syncing..." : "Sync Live Leads"}</span>
+            </button>
+
+            {/* Consolidated Export Dropdown */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setExportMenuOpen((prev) => !prev)}
+                disabled={isExporting}
+                className="flex items-center gap-2 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:opacity-50"
+                title="Export leads to CSV or Excel"
+              >
+                <Download size={14} />
+                <span>{isExporting ? "Exporting..." : "Export"}</span>
+                <ChevronDown size={13} className={`transition-transform duration-200 ${exportMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {exportMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl dark:border-slate-700 dark:bg-[#111827] z-30">
+                  <button
+                    onClick={() => {
+                      setExportMenuOpen(false);
+                      handleExportLeads("csv");
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <FileText size={14} className="text-violet-600" />
+                    <span>Export CSV</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setExportMenuOpen(false);
+                      handleExportLeads("xlsx");
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <FileSpreadsheet size={14} className="text-emerald-600" />
+                    <span>Export Excel (.xlsx)</span>
+                  </button>
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                  <button
+                    onClick={() => {
+                      setExportMenuOpen(false);
+                      handleExportBoth();
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-slate-800"
+                  >
+                    <Download size={14} className="text-violet-600" />
+                    <span>Export Both (CSV + Excel)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <LeadStats leads={enrichedLeads} />
@@ -216,7 +427,7 @@ const LeadsPage = () => {
           onAddLead={handleAddLeadClick}
         />
 
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-12 gap-6 items-start">
           <div className="col-span-12 xl:col-span-8">
             {isLoading ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-400">
@@ -229,11 +440,15 @@ const LeadsPage = () => {
                 setSelectedLead={setSelectedLead}
                 onEditLead={handleEditLeadClick}
                 onDeleteLead={handleDeleteLeadClick}
+                onExport={handleExportLeads}
               />
             )}
           </div>
 
-          <div className="col-span-12 xl:col-span-4">
+          <div
+            ref={detailsPanelRef}
+            className="col-span-12 xl:col-span-4 sticky top-6 self-start max-h-[calc(100vh-6.5rem)] pb-12 overflow-y-auto pr-1 custom-scrollbar"
+          >
             <LeadDetails selectedLead={selectedLead} onScheduleMeeting={handleMarkMeetingBooked} />
           </div>
         </div>
@@ -250,6 +465,13 @@ const LeadsPage = () => {
         open={!!editingLead}
         onClose={() => setEditingLead(null)}
         onSubmit={handleUpdateLead}
+      />
+
+      <MeetingSchedulerModal
+        open={!!schedulingLead}
+        lead={schedulingLead}
+        onClose={() => setSchedulingLead(null)}
+        onSchedule={handleConfirmSchedule}
       />
 
       <Toast

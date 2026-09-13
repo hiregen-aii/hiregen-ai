@@ -25,6 +25,13 @@ module.exports = async function (fastify) {
   );
   fastify.patch("/:id", { preHandler: requireRole(["ADMIN", "MANAGER"]) }, updateCompany);
 
+  // Trigger Research Agent on company
+  fastify.post(
+    "/:id/research",
+    { preHandler: requireRole(["ADMIN", "MANAGER", "SALES_REP"]) },
+    require("../controllers/companies.controller").researchCompany
+  );
+
   // Team 2 (2.5 CRM Timeline) — cross-listed with Team 4
   fastify.get(
     "/:id/timeline",

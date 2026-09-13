@@ -24,6 +24,14 @@ export interface Lead {
   stage: LeadStage;
   hiring_type: HiringType | null;
   fit_score: number;
+  source?: string | null;
+  source_url?: string | null;
+  company_name?: string | null;
+  company_domain?: string | null;
+  company_industry?: string | null;
+  contact_name?: string | null;
+  contact_title?: string | null;
+  contact_email?: string | null;
   created_at: string;
   updated_at: string;
 }

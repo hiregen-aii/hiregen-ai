@@ -109,6 +109,9 @@ const LeadSearchBar = ({
           >
             <option>All Sources</option>
             <option>LinkedIn</option>
+            <option>Jobicy</option>
+            <option>RemoteOK</option>
+            <option>Remotive</option>
             <option>Naukri</option>
             <option>Indeed</option>
             <option>Referral</option>

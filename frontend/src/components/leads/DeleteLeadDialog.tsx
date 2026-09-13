@@ -1,5 +1,5 @@
 import { Trash2, X } from "lucide-react";
-import type { Lead } from "@/data/leads";
+import type { EnrichedLead as Lead } from "@/features/leads/hooks/useEnrichedLeads";
 
 interface DeleteLeadDialogProps {
   open: boolean;

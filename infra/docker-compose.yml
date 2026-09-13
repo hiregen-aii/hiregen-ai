@@ -47,6 +47,8 @@ services:
       DB_PASSWORD: postgres
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/hiregen
       AI_GATEWAY_BASE_URL: http://ai-platform-service:3100
+    volumes:
+      - ../backend/src:/app/src
     ports:
       - "3000:3000"
     depends_on:
@@ -95,6 +97,26 @@ services:
       retries: 5
       start_period: 10s
 
+  scraper-engine:
+    build:
+      context: ..
+      dockerfile: docker/scraper.Dockerfile
+    container_name: hiregen-scraper-engine
+    ports:
+      - "5050:5050"
+    environment:
+      PORT: 5050
+      HOST: 0.0.0.0
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ../scraper-engine/src:/app/src
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5050/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   n8n:
     build:
       context: ..
@@ -116,7 +138,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5678/healthz"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5678/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -134,6 +156,12 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   redis-exporter:
     image: oliver006/redis_exporter:latest

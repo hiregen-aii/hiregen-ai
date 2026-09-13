@@ -2,12 +2,8 @@ import {
   Activity,
   AlertTriangle,
   Zap,
+  CheckCircle2,
 } from "lucide-react";
-
-import {
-  useEffect,
-  useState,
-} from "react";
 
 import type {
   WorkflowSignal,
@@ -18,195 +14,20 @@ interface WorkflowHealthProps {
 }
 
 const WorkflowHealth = ({
-  workflows,
+  workflows = [],
 }: WorkflowHealthProps) => {
-
-  const [liveSignals, setLiveSignals] =
-    useState(workflows);
-
-  const companies = [
-    "Stripe",
-    "Databricks",
-    "Snowflake",
-    "Figma",
-    "Notion",
-    "Canva",
-    "Atlassian",
-    "HubSpot",
-    "OpenAI",
-    "Microsoft",
-  ];
-
-  const roles = [
-    "HRBP",
-    "Senior Recruiter",
-    "VP Engineering",
-    "Talent Acquisition",
-    "Recruitment Lead",
-    "Hiring Manager",
-    "Tech Recruiter",
-  ];
-
-  const failures = [
-    "HR Contact Enrichment",
-    "SMTP Rate Limit",
-    "Email Verification",
-    "Apollo Sync",
-    "CRM Integration",
-    "LinkedIn Scraper",
-    "Outreach Queue",
-  ];
-
-  const failureReasons = [
-    "Timeout calling enrichment provider",
-    "SMTP rate limit exceeded",
-    "API quota exceeded",
-    "Webhook unavailable",
-    "Connection refused",
-    "Authentication expired",
-  ];
-
-  const random = (
-    min: number,
-    max: number
-  ) =>
-    Math.floor(
-      Math.random() *
-        (max - min + 1)
-    ) + min;
-
-      useEffect(() => {
-
-    const interval = setInterval(() => {
-
-      setLiveSignals((previous) => {
-
-        const updated = [...previous];
-
-        /* Update existing workflows */
-
-        for (let i = 0; i < updated.length; i++) {
-
-          const item = updated[i];
-
-          item.health = random(88, 99);
-
-          item.time =
-            random(0, 1) === 0
-              ? "Just now"
-              : `${random(1, 5)} min ago`;
-
-          if (item.status === "failed") {
-
-            if (Math.random() > 0.6) {
-              item.status = "retrying";
-            }
-
-          } else if (item.status === "retrying") {
-
-            if (Math.random() > 0.5) {
-              item.status = "healthy";
-            }
-
-          }
-
-        }
-
-        /* Occasionally add a new live signal */
-
-        if (Math.random() > 0.45) {
-
-          updated.unshift({
-
-            id: Date.now().toString(),
-
-            company:
-              companies[
-                random(
-                  0,
-                  companies.length - 1
-                )
-              ],
-
-            role:
-              roles[
-                random(
-                  0,
-                  roles.length - 1
-                )
-              ],
-
-            health: random(90, 99),
-
-            status: "healthy",
-
-            time: "Just now",
-
-          });
-
-        }
-
-        /* Occasionally create a workflow failure */
-
-        if (Math.random() > 0.75) {
-
-          updated.push({
-
-            id: `${Date.now()}-failure`,
-
-            company:
-              failures[
-                random(
-                  0,
-                  failures.length - 1
-                )
-              ],
-
-            role:
-              failureReasons[
-                random(
-                  0,
-                  failureReasons.length - 1
-                )
-              ],
-
-            health: random(35, 60),
-
-            status:
-              Math.random() > 0.5
-                ? "failed"
-                : "retrying",
-
-            time: `${random(1, 8)} min ago`,
-
-          });
-
-        }
-
-        /* Keep list manageable */
-
-        return updated.slice(0, 8);
-
-      });
-
-    }, 5000);
-
-    return () => clearInterval(interval);
-
-  }, []);
-
-    const hotSignals = liveSignals.filter(
-    (item) => item.status === "healthy"
+  const hotSignals = (workflows || []).filter(
+    (item) => item.status?.toLowerCase() === "healthy"
   );
 
-  const workflowFailures = liveSignals.filter(
+  const workflowFailures = (workflows || []).filter(
     (item) =>
-      item.status === "failed" ||
-      item.status === "retrying"
+      item.status?.toLowerCase() === "failed" ||
+      item.status?.toLowerCase() === "retrying"
   );
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl dark:border-slate-700 dark:bg-[#111827]">
+    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl dark:border-slate-700 dark:bg-[#111827]">
 
       {/* Header */}
 
@@ -351,11 +172,10 @@ const WorkflowHealth = ({
           <div className="space-y-3">
 
                         {workflowFailures.length === 0 ? (
-
-              <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                No workflow failures detected.
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300">
+                <CheckCircle2 size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>No workflow failures detected. All recruitment automation pipelines operational.</span>
               </div>
-
             ) : (
 
               workflowFailures.map((item) => (

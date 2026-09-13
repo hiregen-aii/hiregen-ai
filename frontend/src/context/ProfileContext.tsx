@@ -7,7 +7,6 @@ import {
 } from "react";
 
 import {
-  activities as initialActivities,
   profile as initialProfile,
   skills as initialSkills,
 } from "@/data/profile";
@@ -20,6 +19,25 @@ import type {
 
 import { useAuthStore } from "@/store/auth-store";
 import { getOwnProfileRequest, updateOwnProfileRequest } from "@/services/auth.service";
+import { api } from "@/services/api";
+
+function formatRelativeTime(dateStr?: string): string {
+  if (!dateStr) return "Recently";
+  try {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    if (isNaN(diffMs)) return "Recently";
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Yesterday";
+    return `${diffDays}d ago`;
+  } catch {
+    return "Recently";
+  }
+}
 
 interface ProfileContextType {
   profile: Profile;
@@ -78,12 +96,20 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
     const saved = localStorage.getItem("hiregen_activities");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const clean = parsed.filter(
+            (a) =>
+              !["Profile Updated", "Photo Uploaded", "Skills Updated"].includes(a.title) ||
+              !["10 mins ago", "Yesterday", "2 days ago", "5 days ago", "1 week ago"].includes(a.time)
+          );
+          if (clean.length > 0) return clean;
+        }
       } catch (e) {
         // ignore
       }
     }
-    return initialActivities;
+    return [];
   });
 
   // Fetch real profile from PostgreSQL database on load
@@ -127,10 +153,41 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
           }
         })
         .catch(() => {});
+
+      // Fetch live user activities from real PostgreSQL analytics stream
+      api
+        .get<{ success: boolean; data: Array<{ id: string; type: string; description: string; company: string; timestamp: string }> }>("/analytics/activity")
+        .then((res) => {
+          if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+            const liveActivities: Activity[] = res.data.data.map((item, idx) => ({
+              id: idx + 1,
+              title:
+                item.type === "lead"
+                  ? "New Lead Detected"
+                  : item.type === "email"
+                  ? "Outreach Email Sent"
+                  : item.type === "meeting"
+                  ? "Meeting Scheduled"
+                  : "Pipeline Activity",
+              description: item.description,
+              time: formatRelativeTime(item.timestamp),
+              type:
+                item.type === "lead"
+                  ? "professional"
+                  : item.type === "email"
+                  ? "profile"
+                  : item.type === "meeting"
+                  ? "skill"
+                  : "professional",
+            }));
+            setActivities((prev) => (prev.length > 0 ? prev : liveActivities));
+          }
+        })
+        .catch(() => {});
     } else {
       setProfile(initialProfile);
       setSkills(initialSkills);
-      setActivities(initialActivities);
+      setActivities([]);
       localStorage.removeItem("hiregen_profile");
       localStorage.removeItem("hiregen_skills");
       localStorage.removeItem("hiregen_activities");
@@ -196,6 +253,14 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
       employmentType: data.employmentType,
       profileImage: data.profileImage,
     }).catch(() => {});
+
+    addActivity({
+      id: Date.now(),
+      title: "Profile Updated",
+      description: "Updated personal and professional information.",
+      time: "Just now",
+      type: "profile",
+    });
   };
 
   const updatePhoto = (photo: string) => {
@@ -210,6 +275,14 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
     });
 
     updateOwnProfileRequest({ profileImage: photo }).catch(() => {});
+
+    addActivity({
+      id: Date.now(),
+      title: "Photo Uploaded",
+      description: "Changed profile picture.",
+      time: "Just now",
+      type: "photo",
+    });
   };
 
   const addSkill = (skill: Skill) => {
@@ -218,13 +291,30 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
       updateOwnProfileRequest({ skills: updated }).catch(() => {});
       return updated;
     });
+
+    addActivity({
+      id: Date.now(),
+      title: "Skills Updated",
+      description: `Added skill: ${skill.name}`,
+      time: "Just now",
+      type: "skill",
+    });
   };
 
   const removeSkill = (id: number) => {
+    const targetSkill = skills.find((s) => s.id === id);
     setSkills((previous) => {
       const updated = previous.filter((skill) => skill.id !== id);
       updateOwnProfileRequest({ skills: updated }).catch(() => {});
       return updated;
+    });
+
+    addActivity({
+      id: Date.now(),
+      title: "Skills Updated",
+      description: `Removed skill: ${targetSkill?.name || "Skill"}`,
+      time: "Just now",
+      type: "skill",
     });
   };
 

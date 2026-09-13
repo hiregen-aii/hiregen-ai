@@ -7,6 +7,7 @@ const {
   getApprovalsByLeadHandler,
   createApprovalHandler,
   updateApprovalStatusHandler,
+  updateApprovalDraftHandler,
   deleteApprovalHandler,
 } = require("../controllers/approval.controller");
 
@@ -40,9 +41,21 @@ module.exports = async function (fastify) {
     createApprovalHandler
   );
 
+  // Edit draft subject/body
+  fastify.patch(
+    "/:id",
+    { preHandler: requireRole(["ADMIN", "MANAGER", "SALES_REP", "RECRUITER"]) },
+    updateApprovalDraftHandler
+  );
+  fastify.put(
+    "/:id",
+    { preHandler: requireRole(["ADMIN", "MANAGER", "SALES_REP", "RECRUITER"]) },
+    updateApprovalDraftHandler
+  );
+
   fastify.patch(
     "/:id/status",
-    { preHandler: requireRole(["ADMIN", "MANAGER"]) },
+    { preHandler: requireRole(["ADMIN", "MANAGER", "SALES_REP"]) },
     updateApprovalStatusHandler
   );
 

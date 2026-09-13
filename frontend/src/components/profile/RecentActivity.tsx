@@ -59,19 +59,23 @@ const { activities } = useProfile();
       {/* Timeline */}
 
       <div className="p-6">
+        {activities.length === 0 ? (
+          <div className="py-12 text-center text-slate-500 dark:text-slate-400">
+            <p className="font-medium">No recent activity yet</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Activities appear automatically as pipeline leads are discovered, emails are sent, meetings are scheduled, or your profile is updated.
+            </p>
+          </div>
+        ) : (
+          activities.map((activity, index) => {
+            const Icon = iconMap[activity.type] || iconMap.profile;
+            const iconColor = iconColors[activity.type] || iconColors.profile;
 
-                {activities.map((activity, index) => {
-
-          const Icon = iconMap[activity.type];
-
-          const iconColor = iconColors[activity.type];
-
-          return (
-
-            <div
-              key={activity.id}
-              className="relative flex gap-4 pb-8 last:pb-0"
-            >
+            return (
+              <div
+                key={activity.id}
+                className="relative flex gap-4 pb-8 last:pb-0"
+              >
 
               {/* Timeline Line */}
 
@@ -122,8 +126,7 @@ const { activities } = useProfile();
             </div>
 
           );
-
-        })}
+        }))}
 
                 {/* Footer */}
 

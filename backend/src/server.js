@@ -7,6 +7,7 @@ const { error: errResponse } = require('./utils/response')
 const { generalLimit } = require('./middleware/rateLimit')
 const { upsertAdminUser } = require('./repositories/user.repository')
 const client = require('prom-client')
+const autoSyncService = require('./services/autoSync.service')
 
 client.collectDefaultMetrics()
 
@@ -59,10 +60,15 @@ fastify.register(require("./routes/contacts.routes"), { prefix: "/api/v1/contact
 fastify.register(require("./routes/approval.routes"), { prefix: "/api/v1/approval" });
 fastify.register(require("./routes/campaigns.routes"), { prefix: "/api/v1/campaigns" });
 fastify.register(require("./routes/analytics.routes"), { prefix: "/api/v1/analytics" });
+fastify.register(require("./routes/meetings"), { prefix: "/api/v1/meetings" });
 
 // NEW — Notifications: see settings-notifications-architecture-plan.md.
 // Polling-based (no Socket.IO server) — frontend refetches on an interval.
 fastify.register(require("./routes/notifications.routes"), { prefix: "/api/v1/notifications" });
+
+// NEW — Streaming CSV/Excel Export & Live Public Job Scraper
+fastify.register(require("./routes/export.routes"), { prefix: "/api/v1" });
+fastify.register(require("./routes/autopilot.routes"), { prefix: "/api/v1/autopilot" });
 
 // Service-to-service (n8n) endpoints — separate prefix, NOT behind
 // verifyToken/requireRole, since n8n can't hold a user JWT. This currently
@@ -157,24 +163,6 @@ async function runAutoMigrations() {
   }
 }
 
-async function autoSeedMockDataIfEmpty() {
-  try {
-    const res = await db.query('SELECT count(*)::int as count FROM users')
-    if (res.rows[0].count <= 1) {
-      console.log('[SEED] Only admin found. Auto-seeding initial demo data...')
-      const cp = require('node:child_process')
-      const path = require('node:path')
-      const fs = require('node:fs')
-      const seedScript = path.resolve(__dirname, '..', 'scripts', 'seed-mock-data.js')
-      if (fs.existsSync(seedScript)) {
-        cp.fork(seedScript)
-      }
-    }
-  } catch (err) {
-    console.warn('[SEED AUTO WARNING]', err.message)
-  }
-}
-
 // start
 async function start() {
   try {
@@ -182,13 +170,16 @@ async function start() {
     console.log('[DB] Connected')
     await runAutoMigrations()
     await seedAdminUser()
-    await autoSeedMockDataIfEmpty()
 
     await fastify.listen({
       port: parseInt(env.PORT, 10),
       host: process.env.HOST || '0.0.0.0'
     })
     console.log(`[SERVER] Port: ${env.PORT}`)
+
+    // Start background live hiring radar auto-sync (silent 10-minute cycle)
+    autoSyncService.startAutoSync(10)
+    console.log('[AUTO-SYNC] Background live radar worker initialized (10-minute silent schedule)')
   } catch (err) {
     console.error("========== STARTUP ERROR ==========");
     console.error(err);
@@ -201,6 +192,7 @@ async function start() {
 const stop = async () => {
   console.log('[SHUTDOWN] Stopping')
   try {
+    autoSyncService.stopAutoSync()
     await fastify.close()
     await db.close()
     process.exit(0)

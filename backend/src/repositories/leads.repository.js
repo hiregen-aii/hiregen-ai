@@ -48,8 +48,21 @@ const wrapDbError = (err, fallbackMessage) => {
 const getAllLeads = async () => {
   try {
     const result = await pool.query(
-      `SELECT * FROM leads
-       ORDER BY created_at DESC`
+      `SELECT 
+         l.*, 
+         hs.source AS source, 
+         hs.source_url AS source_url,
+         c.name AS company_name,
+         c.domain AS company_domain,
+         c.industry AS company_industry,
+         co.full_name AS contact_name,
+         co.title AS contact_title,
+         co.email AS contact_email
+       FROM leads l
+       LEFT JOIN hiring_signals hs ON l.hiring_signal_id = hs.id
+       LEFT JOIN companies c ON l.company_id = c.id
+       LEFT JOIN contacts co ON l.primary_contact_id = co.id
+       ORDER BY l.created_at DESC`
     )
 
     return result.rows
@@ -66,8 +79,21 @@ const getLeadById = async (id) => {
 
   try {
     const result = await pool.query(
-      `SELECT * FROM leads
-       WHERE id = $1`,
+      `SELECT 
+         l.*, 
+         hs.source AS source, 
+         hs.source_url AS source_url,
+         c.name AS company_name,
+         c.domain AS company_domain,
+         c.industry AS company_industry,
+         co.full_name AS contact_name,
+         co.title AS contact_title,
+         co.email AS contact_email
+       FROM leads l
+       LEFT JOIN hiring_signals hs ON l.hiring_signal_id = hs.id
+       LEFT JOIN companies c ON l.company_id = c.id
+       LEFT JOIN contacts co ON l.primary_contact_id = co.id
+       WHERE l.id = $1`,
       [id]
     )
 

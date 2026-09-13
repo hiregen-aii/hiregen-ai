@@ -15,13 +15,24 @@ Rules:
   {"status": "SUCCESS" | "INSUFFICIENT_DATA", "summary": string, "sources": [{"url": string, "supports": string}]}`;
 
 async function callAiGateway(prompt, config = {}) {
-  const baseUrl = config.baseUrl || process.env.AI_GATEWAY_BASE_URL;
-  const apiKey = config.apiKey || process.env.AI_GATEWAY_API_KEY;
-  const model = config.model || process.env.AI_GATEWAY_MODEL;
+  let baseUrl = config.baseUrl || process.env.AI_GATEWAY_BASE_URL;
+  let apiKey = config.apiKey || process.env.AI_GATEWAY_API_KEY || process.env.GROQ_API_KEY || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+  let model = config.model || process.env.AI_GATEWAY_MODEL;
+
+  // Auto-detect Groq or xAI Grok provider if API key is provided
+  if (!baseUrl && (process.env.GROQ_API_KEY || (apiKey && apiKey.startsWith("gsk_")))) {
+    baseUrl = "https://api.groq.com/openai/v1";
+    model = model || process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+    apiKey = apiKey || process.env.GROQ_API_KEY;
+  } else if (!baseUrl && (process.env.GROK_API_KEY || process.env.XAI_API_KEY || (apiKey && apiKey.startsWith("xai-")))) {
+    baseUrl = "https://api.x.ai/v1";
+    model = model || "grok-2-latest";
+    apiKey = apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+  }
 
   if (!baseUrl || !apiKey || !model) {
     throw new Error(
-      "AI Gateway is not configured — set AI_GATEWAY_BASE_URL, AI_GATEWAY_API_KEY, and AI_GATEWAY_MODEL"
+      "AI Gateway is not configured — set GROQ_API_KEY or GROK_API_KEY in .env, or AI_GATEWAY_BASE_URL, AI_GATEWAY_API_KEY, and AI_GATEWAY_MODEL"
     );
   }
 

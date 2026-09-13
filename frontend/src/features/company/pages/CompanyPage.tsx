@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, Link2, Users, Mail, Calendar, Sparkles, Send } from "lucide-react";
+import { api } from "@/services/api";
 
 import { useCompanyProfiles } from "@/hooks/useCompanyProfiles";
 import { useCompanyTimeline } from "@/hooks/useCompanyTimeline";
@@ -39,9 +42,22 @@ function describeEvent(event: TimelineEvent): string {
 }
 
 const CompanyPage = () => {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: companies, isLoading, isError, error } = useCompanyProfiles();
   const [selected, setSelected] = useState<CompanyProfile | null>(null);
   const [search, setSearch] = useState("");
+  const [isResearching, setIsResearching] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  const companyDetailsRef = useRef<HTMLDivElement>(null);
+
+  // Scroll details panel back to top when a company is selected
+  useEffect(() => {
+    if (selected && companyDetailsRef.current) {
+      companyDetailsRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [selected?.id]);
 
   const timelineQuery = useCompanyTimeline(selected?.id ?? null);
 
@@ -62,7 +78,7 @@ const CompanyPage = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-6 items-start">
         <div className="col-span-12 lg:col-span-4">
           <div className="mb-4">
             <input
@@ -117,14 +133,17 @@ const CompanyPage = () => {
           )}
         </div>
 
-        <div className="col-span-12 lg:col-span-8">
+        <div
+          ref={companyDetailsRef}
+          className="col-span-12 lg:col-span-8 sticky top-6 self-start max-h-[calc(100vh-6.5rem)] pb-16 overflow-y-auto pr-1 custom-scrollbar"
+        >
           {!selected ? (
             <div className="flex h-full min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-slate-700 dark:bg-[#111827]">
               <Building2 className="mb-4 h-10 w-10 text-slate-300" />
               <p className="text-slate-500 dark:text-slate-400">Select a company to view details.</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-6 pb-12">
               <div className="rounded-3xl bg-gradient-to-r from-violet-700 via-purple-700 to-fuchsia-700 p-8 text-white shadow-xl">
                 <div className="flex items-center gap-5">
                   <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/20 backdrop-blur">
@@ -237,10 +256,41 @@ const CompanyPage = () => {
                       onClick={() => window.open(`https://${selected.domain}`, "_blank", "noopener,noreferrer")}
                     />
                   )}
-                  <ActionButton icon={<Mail className="h-4 w-4" />} title="Email" disabled note="No contact email on file" />
-                  <ActionButton icon={<Send className="h-4 w-4" />} title="Outreach" disabled note="Not wired up yet" />
-                  <ActionButton icon={<Sparkles className="h-4 w-4" />} title="Trigger Research" disabled note="Coming soon" />
+                  <ActionButton
+                    icon={<Mail className="h-4 w-4" />}
+                    title="Direct Email"
+                    onClick={() => window.open(selected.domain ? `mailto:careers@${selected.domain}` : "mailto:")}
+                  />
+                  <ActionButton
+                    icon={<Send className="h-4 w-4" />}
+                    title="Outreach Drafts"
+                    onClick={() => navigate("/approval")}
+                  />
+                  <ActionButton
+                    icon={<Sparkles className={`h-4 w-4 ${isResearching ? "animate-spin text-violet-600" : ""}`} />}
+                    title={isResearching ? "Researching..." : "Trigger Research"}
+                    disabled={isResearching}
+                    onClick={async () => {
+                      setIsResearching(true);
+                      setActionNotice(null);
+                      try {
+                        await api.post(`/companies/${selected.id}/research`);
+                        await queryClient.invalidateQueries({ queryKey: ["company-timeline", selected.id] });
+                        setActionNotice("Company research completed successfully!");
+                      } catch (err) {
+                        setActionNotice(err instanceof Error ? err.message : "Failed to run research");
+                      } finally {
+                        setIsResearching(false);
+                      }
+                    }}
+                  />
                 </div>
+
+                {actionNotice && (
+                  <p className="mt-3 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                    {actionNotice}
+                  </p>
+                )}
               </div>
             </div>
           )}

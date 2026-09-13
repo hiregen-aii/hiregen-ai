@@ -1,4 +1,5 @@
-import { Building2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Building2, Download, ChevronDown, FileSpreadsheet, FileText } from "lucide-react";
 import LeadActions from "./LeadActions";
 import type { EnrichedLead } from "@/features/leads/hooks/useEnrichedLeads";
 
@@ -8,6 +9,7 @@ interface LeadsTableProps {
   setSelectedLead: (lead: EnrichedLead) => void;
   onEditLead: (lead: EnrichedLead) => void;
   onDeleteLead: (lead: EnrichedLead) => void;
+  onExport?: (format: "csv" | "xlsx") => void;
 }
 
 const statusColor = (status: string) => {
@@ -36,14 +38,76 @@ const LeadsTable = ({
   setSelectedLead,
   onEditLead,
   onDeleteLead,
+  onExport,
 }: LeadsTableProps) => {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#111827]">
       <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Leads</h2>
-        <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-600 dark:bg-violet-900/30 dark:text-violet-300">
-          {leads.length} Records
-        </span>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Leads</h2>
+          <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-600 dark:bg-violet-900/30 dark:text-violet-300">
+            {leads.length} Records
+          </span>
+        </div>
+
+        {onExport && (
+          <div className="relative" ref={exportRef}>
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-700"
+              title="Export leads to CSV or Excel"
+            >
+              <Download size={14} />
+              <span>Export</span>
+              <ChevronDown size={12} />
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-[#111827]">
+                <button
+                  onClick={() => {
+                    onExport("csv");
+                    setShowExportMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition hover:bg-violet-50 hover:text-violet-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <FileText size={15} className="text-violet-600" />
+                  <div>
+                    <p className="font-semibold">Export CSV</p>
+                    <p className="text-[10px] text-slate-400">RFC 4180 standard</p>
+                  </div>
+                </button>
+                <div className="border-t border-slate-100 dark:border-slate-800" />
+                <button
+                  onClick={() => {
+                    onExport("xlsx");
+                    setShowExportMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition hover:bg-violet-50 hover:text-violet-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <FileSpreadsheet size={15} className="text-emerald-600" />
+                  <div>
+                    <p className="font-semibold">Export Excel (.xlsx)</p>
+                    <p className="text-[10px] text-slate-400">Styled workbook</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="overflow-x-auto">

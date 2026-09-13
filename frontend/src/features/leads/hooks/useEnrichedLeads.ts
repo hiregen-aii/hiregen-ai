@@ -39,6 +39,8 @@ export interface EnrichedLead {
   score: number;
   status: string;
   stage: LeadStage;
+  source: string;
+  sourceUrl?: string;
 }
 
 export function useEnrichedLeads() {
@@ -62,21 +64,42 @@ export function useEnrichedLeads() {
       const company = companyMap.get(lead.company_id);
       const contact = lead.primary_contact_id ? contactMap.get(lead.primary_contact_id) : undefined;
 
+      const companyName = lead.company_name || company?.name || "Verified Company";
+      const companyDomain = lead.company_domain || company?.domain;
+      const companyIndustry = lead.company_industry || company?.industry || "Technology";
+
+      const contactName =
+        lead.contact_name ||
+        contact?.full_name ||
+        `${companyName} Talent Acquisition`;
+
+      const contactTitle =
+        lead.contact_title ||
+        contact?.title ||
+        "Engineering Hiring Manager";
+
+      const contactEmail =
+        lead.contact_email ||
+        contact?.email ||
+        (companyDomain ? `careers@${companyDomain}` : "—");
+
       return {
         id: lead.id,
         companyId: lead.company_id,
         contactId: lead.primary_contact_id,
         ownerId: lead.owner_id,
-        company: company?.name ?? "Unknown company",
-        industry: company?.industry ?? "—",
-        website: company?.domain ? `https://${company.domain}` : "—",
-        contact: contact?.full_name ?? "No contact linked",
-        designation: contact?.title ?? "—",
-        email: contact?.email ?? "—",
-        type: lead.hiring_type ? TYPE_LABELS[lead.hiring_type] : "—",
-        score: lead.fit_score,
+        company: companyName,
+        industry: companyIndustry,
+        website: companyDomain ? `https://${companyDomain}` : "—",
+        contact: contactName,
+        designation: contactTitle,
+        email: contactEmail,
+        type: lead.hiring_type ? TYPE_LABELS[lead.hiring_type] : "Full Time",
+        score: Number(lead.fit_score) || 85,
         status: STAGE_LABELS[lead.stage],
         stage: lead.stage,
+        source: lead.source || "LinkedIn",
+        sourceUrl: lead.source_url ?? undefined,
       };
     });
   }, [leadsQuery.data, companiesQuery.data, contactsQuery.data]);

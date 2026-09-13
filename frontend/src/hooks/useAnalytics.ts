@@ -16,3 +16,13 @@ export function useMonthlyAnalytics() {
     staleTime: 60_000,
   });
 }
+
+import { fetchTeamPerformance } from "@/services/analytics.service";
+
+export function useTeamPerformance() {
+  return useQuery({
+    queryKey: ["analytics-team"],
+    queryFn: fetchTeamPerformance,
+    staleTime: 30_000,
+  });
+}

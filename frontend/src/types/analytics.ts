@@ -46,7 +46,7 @@ export interface AnalyticsStat {
   title: string;
   value: string;
   change: string;
-  trend: "up" | "down";
+  trend: "up" | "down" | "neutral";
   color: string;
   icon: string;
 }

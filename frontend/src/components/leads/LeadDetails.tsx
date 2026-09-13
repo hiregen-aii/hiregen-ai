@@ -35,7 +35,7 @@ const LeadDetails = ({ selectedLead, onScheduleMeeting }: LeadDetailsProps) => {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-[#111827]">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 pb-10 shadow-sm dark:border-slate-700 dark:bg-[#111827]">
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-900/30">
           <Building2 className="h-7 w-7 text-violet-600" />
@@ -74,11 +74,13 @@ const LeadDetails = ({ selectedLead, onScheduleMeeting }: LeadDetailsProps) => {
             title="Website"
             onClick={() => window.open(selectedLead.website)}
           />
-          <ActionButton
-            icon={<CalendarPlus className="h-4 w-4" />}
-            title="Mark Meeting Booked"
-            onClick={() => onScheduleMeeting(selectedLead)}
-          />
+          <div className="col-span-2">
+            <ActionButton
+              icon={<CalendarPlus className="h-4 w-4" />}
+              title="Mark Meeting Booked"
+              onClick={() => onScheduleMeeting(selectedLead)}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -110,7 +112,7 @@ interface ActionButtonProps {
 const ActionButton = ({ icon, title, onClick }: ActionButtonProps) => (
   <button
     onClick={onClick}
-    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-3 transition hover:bg-violet-50 dark:border-slate-700 dark:hover:bg-slate-800"
+    className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 p-3 transition hover:bg-violet-50 dark:border-slate-700 dark:hover:bg-slate-800"
   >
     {icon}
     <span className="text-sm font-medium">{title}</span>

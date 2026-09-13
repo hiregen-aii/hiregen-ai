@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { CalendarPlus, X } from "lucide-react";
-import type { Lead } from "@/data/leads";
+import type { EnrichedLead as Lead } from "@/features/leads/hooks/useEnrichedLeads";
 
 interface MeetingSchedulerModalProps {
   open: boolean;

@@ -5,6 +5,6 @@ export function useContacts() {
   return useQuery({
     queryKey: ["contacts"],
     queryFn: fetchContacts,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 }

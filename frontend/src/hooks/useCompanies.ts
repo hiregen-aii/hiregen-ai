@@ -5,6 +5,6 @@ export function useCompanies() {
   return useQuery({
     queryKey: ["companies"],
     queryFn: fetchCompanies,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 }

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
   Bot,
   Brain,
   FileSearch,
   Mail,
+  Zap,
 } from "lucide-react";
 
 import { useSettings } from "@/context/SettingsContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { fetchAutopilotStatus, updateAutopilotConfig } from "@/services/autopilot.service";
 
 import type { AIModel } from "@/types/settings";
 
@@ -59,6 +61,19 @@ const AISettings = () => {
 
   const [aiSettings, setAISettings] =
     useState(settings.ai);
+
+  const [isAutopilot, setIsAutopilot] = useState(false);
+
+  useEffect(() => {
+    fetchAutopilotStatus()
+      .then((status) => {
+        setIsAutopilot(status.isEnabled);
+        if (status.minFitScore) {
+          setAISettings((prev) => ({ ...prev, matchScore: status.minFitScore }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const toggleSetting = (
     key: AIOption["key"]
@@ -181,6 +196,52 @@ const AISettings = () => {
 
         })}
 
+        {/* Autopilot Outreach Dispatch Toggle */}
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+          <div className="flex items-center gap-4">
+            <div
+              className={`rounded-lg p-3 ${
+                isAutopilot
+                  ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
+              }`}
+            >
+              <Zap size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  Autopilot Outreach Dispatch
+                </h3>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    isAutopilot
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                  }`}
+                >
+                  {isAutopilot ? "Autonomous Active" : "Manual Review"}
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Automatically send outreach emails to candidates meeting or exceeding the match score threshold.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsAutopilot(!isAutopilot)}
+            className={`relative h-7 w-14 rounded-full transition-all duration-300 ${
+              isAutopilot ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all duration-300 ${
+                isAutopilot ? "left-8" : "left-1"
+              }`}
+            />
+          </button>
+        </div>
+
         {/* Match Score */}
 
         <div>
@@ -262,25 +323,28 @@ const AISettings = () => {
         <div className="flex justify-end border-t border-slate-200 pt-6 dark:border-slate-700">
 
           <button
-            onClick={() => {
-
+            onClick={async () => {
               updateAI(aiSettings);
+              try {
+                await updateAutopilotConfig({
+                  enabled: isAutopilot,
+                  minFitScore: aiSettings.matchScore,
+                });
+              } catch (err) {
+                console.warn("Failed to sync autopilot config:", err);
+              }
 
               addNotification({
                 title: "AI Settings Saved",
                 message:
-                  "Your AI preferences have been updated successfully.",
+                  "Your AI preferences and outreach mode have been updated successfully.",
                 type: "success",
               });
-
             }}
             className="flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 font-semibold text-white transition-all duration-300 hover:bg-violet-700 hover:shadow-lg"
           >
-
             <Bot size={18} />
-
             Save AI Settings
-
           </button>
 
         </div>

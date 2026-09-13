@@ -5,7 +5,9 @@ import {
   Users,
 } from "lucide-react";
 
-import { profileStats } from "@/data/profile";
+import { useLeads } from "@/hooks/useLeads";
+import { useCampaigns } from "@/hooks/useCampaigns";
+import { useCompanies } from "@/hooks/useCompanies";
 
 const iconMap = {
   briefcase: BriefcaseBusiness,
@@ -63,12 +65,48 @@ const getColorClasses = (color: string) => {
 };
 
 const ProfileStats = () => {
+  const { data: leads } = useLeads();
+  const { data: campaigns } = useCampaigns();
+  const { data: companies } = useCompanies();
+
+  const realStats = [
+    {
+      id: 1,
+      title: "Recruitments",
+      value: leads?.length ?? 0,
+      icon: "briefcase" as const,
+      color: "purple",
+      status: "Hiring Active",
+    },
+    {
+      id: 2,
+      title: "Interviews",
+      value: leads?.filter((l) => l.stage === "MEETING_BOOKED" || l.stage === "REPLIED" || l.stage === "SENT").length ?? 0,
+      icon: "users" as const,
+      color: "green",
+      status: "In Pipeline",
+    },
+    {
+      id: 3,
+      title: "Campaigns",
+      value: campaigns?.filter((c) => c.status === "ACTIVE").length ?? (campaigns?.length ?? 0),
+      icon: "calendar" as const,
+      color: "blue",
+      status: "Running",
+    },
+    {
+      id: 4,
+      title: "Companies",
+      value: companies?.length ?? 0,
+      icon: "award" as const,
+      color: "orange",
+      status: "Tracked",
+    },
+  ];
 
   return (
-
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
-      {profileStats.map((stat) => {
+      {realStats.map((stat) => {
 
         const Icon = iconMap[stat.icon];
 

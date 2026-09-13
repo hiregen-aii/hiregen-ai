@@ -69,7 +69,10 @@ const createCampaignHandler = async (request, reply) => {
 const updateCampaignHandler = async (request, reply) => {
   try {
     const { id } = request.params;
-    const { name, hiringType, templateReference, isActive, status } = request.body;
+    const { name, hiringType, templateReference, isActive, status } = request.body || {};
+
+    const normalizedStatus = status ? status.toUpperCase() : undefined;
+    const normalizedHiringType = hiringType ? hiringType.toUpperCase() : undefined;
 
     let calculatedIsActive = isActive;
     if (calculatedIsActive === undefined && normalizedStatus) {

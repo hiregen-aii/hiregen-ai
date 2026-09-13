@@ -68,8 +68,9 @@ const HiringTypeChart = ({
               const circumference =
                 2 * Math.PI * radius;
 
+              const safeTotal = total > 0 ? total : 100;
               const dash =
-                (item.value / total) *
+                (item.value / safeTotal) *
                 circumference;
 
               const gap =
@@ -77,7 +78,7 @@ const HiringTypeChart = ({
 
               const offset =
                 -(
-                  cumulative / total
+                  cumulative / safeTotal
                 ) * circumference;
 
               cumulative += item.value;

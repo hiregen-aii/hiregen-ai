@@ -9,11 +9,13 @@ const {
   getApprovalsByLead,
   createApproval,
   updateApprovalStatus,
+  updateApprovalDraft,
   deleteApproval,
 } = require("../repositories/approvalQueue.repository");
 
 const { getLeadById } = require("../repositories/leads.repository");
 const { createNotification } = require("../repositories/notifications.repository");
+const { sendOutreachEmail } = require("../services/email.service");
 
 const AppError = require("../utils/AppError");
 
@@ -121,7 +123,7 @@ const updateApprovalStatusHandler = async (request, reply) => {
       throw new AppError("status is required", 400);
     }
 
-    const reviewedBy = request.user.id;
+    const reviewedBy = request.user?.id || null;
 
     const approval = await updateApprovalStatus(id, status, reviewedBy);
 
@@ -129,8 +131,42 @@ const updateApprovalStatusHandler = async (request, reply) => {
       throw new AppError("Approval not found", 404);
     }
 
-    // NEW — notify whoever will care that a decision was made. Since we
-    // don't track "who drafted it" separately, we notify the lead owner.
+    let emailResult = null;
+
+    // Trigger automated email dispatch when marked APPROVED
+    if (status === "APPROVED") {
+      try {
+        const enrichedApproval = await getApprovalById(id);
+        const recipientEmail =
+          enrichedApproval?.email ||
+          `recruiting@${(enrichedApproval?.company || 'company').toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+
+        emailResult = await sendOutreachEmail({
+          to: recipientEmail,
+          subject: approval.draft_subject,
+          body: approval.draft_body,
+          leadId: approval.lead_id,
+          approvalId: approval.id,
+        });
+
+        // Notify that email was dispatched
+        if (reviewedBy) {
+          await createNotification(
+            reviewedBy,
+            "LEAD_STAGE_CHANGED",
+            "Outreach Email Dispatched",
+            `Outreach email to ${enrichedApproval?.contact || recipientEmail} (${enrichedApproval?.company || 'Company'}) was dispatched via ${emailResult.provider}.`,
+            "approval",
+            approval.id
+          );
+        }
+      } catch (sendErr) {
+        request.log.error(sendErr);
+        console.error(`[APPROVAL DISPATCH] Failed to dispatch email for approval ${id}:`, sendErr.message);
+      }
+    }
+
+    // Also notify lead owner of decision
     try {
       const lead = await getLeadById(approval.lead_id);
       if (lead && lead.owner_id) {
@@ -138,7 +174,7 @@ const updateApprovalStatusHandler = async (request, reply) => {
           lead.owner_id,
           "APPROVAL_DECIDED",
           `Draft ${status.toLowerCase()}`,
-          `Your draft "${approval.draft_subject}" was ${status.toLowerCase()}.`,
+          `Outreach draft "${approval.draft_subject}" was ${status.toLowerCase()}.`,
           "approval",
           approval.id
         );
@@ -149,8 +185,42 @@ const updateApprovalStatusHandler = async (request, reply) => {
 
     return reply.send({
       success: true,
-      message: "Approval status updated successfully",
+      message: status === "APPROVED" 
+        ? "Draft approved and outreach email dispatched successfully" 
+        : "Approval status updated successfully",
       data: approval,
+      emailDispatch: emailResult,
+    });
+  } catch (err) {
+    request.log.error(err);
+    return reply.code(err.statusCode || 500).send({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+const updateApprovalDraftHandler = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const { draftSubject, draftBody, subject, body } = request.body || {};
+
+    const cleanSubject = draftSubject || subject;
+    const cleanBody = draftBody || body;
+
+    if (!cleanSubject && !cleanBody) {
+      throw new AppError("draftSubject or draftBody is required to update draft", 400);
+    }
+
+    const updated = await updateApprovalDraft(id, cleanSubject, cleanBody);
+    if (!updated) {
+      throw new AppError("Approval not found", 404);
+    }
+
+    return reply.send({
+      success: true,
+      message: "Approval draft updated successfully",
+      data: updated,
     });
   } catch (err) {
     request.log.error(err);
@@ -181,5 +251,6 @@ module.exports = {
   getApprovalsByLeadHandler,
   createApprovalHandler,
   updateApprovalStatusHandler,
+  updateApprovalDraftHandler,
   deleteApprovalHandler,
 };

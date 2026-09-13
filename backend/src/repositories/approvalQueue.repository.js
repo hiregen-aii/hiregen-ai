@@ -1,20 +1,40 @@
 const pool = require('../config/db')
 
-// Get all approvals
+// Get all approvals enriched with lead, company, and contact details
 const getAllApprovals = async () => {
   const result = await pool.query(
-    `SELECT * FROM approval_queue
-     ORDER BY created_at DESC`
+    `SELECT aq.*,
+            l.fit_score, l.stage AS lead_stage, l.hiring_type,
+            c.name AS company, c.industry, c.domain AS company_domain,
+            COALESCE(ct.full_name, 'Hiring Lead') AS contact,
+            COALESCE(ct.email, CONCAT('careers@', c.domain)) AS email,
+            hs.role_title AS job_title, hs.source, hs.source_url
+     FROM approval_queue aq
+     JOIN leads l ON aq.lead_id = l.id
+     JOIN companies c ON l.company_id = c.id
+     LEFT JOIN contacts ct ON l.primary_contact_id = ct.id
+     LEFT JOIN hiring_signals hs ON l.hiring_signal_id = hs.id
+     ORDER BY aq.created_at DESC`
   )
 
   return result.rows
 }
 
-// Get approval by id
+// Get approval by id enriched
 const getApprovalById = async (id) => {
   const result = await pool.query(
-    `SELECT * FROM approval_queue
-     WHERE id = $1`,
+    `SELECT aq.*,
+            l.fit_score, l.stage AS lead_stage, l.hiring_type,
+            c.name AS company, c.industry, c.domain AS company_domain,
+            COALESCE(ct.full_name, 'Hiring Lead') AS contact,
+            COALESCE(ct.email, CONCAT('careers@', c.domain)) AS email,
+            hs.role_title AS job_title, hs.source, hs.source_url
+     FROM approval_queue aq
+     JOIN leads l ON aq.lead_id = l.id
+     JOIN companies c ON l.company_id = c.id
+     LEFT JOIN contacts ct ON l.primary_contact_id = ct.id
+     LEFT JOIN hiring_signals hs ON l.hiring_signal_id = hs.id
+     WHERE aq.id = $1`,
     [id]
   )
 
@@ -61,6 +81,21 @@ const updateApprovalStatus = async (id, status, reviewedBy) => {
   return result.rows[0]
 }
 
+// Update approval draft content
+const updateApprovalDraft = async (id, draftSubject, draftBody) => {
+  const result = await pool.query(
+    `UPDATE approval_queue
+     SET draft_subject = COALESCE($2, draft_subject),
+         draft_body = COALESCE($3, draft_body),
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id, draftSubject, draftBody]
+  )
+
+  return result.rows[0]
+}
+
 // Delete approval
 const deleteApproval = async (id) => {
   await pool.query('DELETE FROM approval_queue WHERE id = $1', [id])
@@ -72,5 +107,6 @@ module.exports = {
   getApprovalsByLead,
   createApproval,
   updateApprovalStatus,
+  updateApprovalDraft,
   deleteApproval
 }

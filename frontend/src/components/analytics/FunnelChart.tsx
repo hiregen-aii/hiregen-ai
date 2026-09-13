@@ -16,19 +16,10 @@ const FunnelChart = ({
   data,
 }: FunnelChartProps) => {
 
-  const totalSignals =
-    data[0]?.value ?? 0;
-
-  const totalWon =
-    data[data.length - 1]?.value ?? 0;
-
-  const overallConversion =
-    totalSignals === 0
-      ? 0
-      : (
-          (totalWon / totalSignals) *
-          100
-        ).toFixed(1);
+  const totalSignals = data[0]?.value ?? 0;
+  const totalWon = data[data.length - 1]?.value ?? 0;
+  const rawOverall = totalSignals > 0 ? (totalWon / totalSignals) * 100 : 0;
+  const overallConversion = isNaN(rawOverall) ? "0.0" : rawOverall.toFixed(1);
 
   const stageColors = [
     "#8B5CF6",
@@ -41,7 +32,7 @@ const FunnelChart = ({
 
   return (
 
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl dark:border-slate-700 dark:bg-[#111827]">
+    <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl dark:border-slate-700 dark:bg-[#111827]">
 
       {/* Header */}
 
@@ -98,15 +89,14 @@ const FunnelChart = ({
 
       {/* Funnel Area */}
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.3fr_0.7fr]">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-[1.1fr_0.9fr] items-center min-w-0">
 
         {/* SVG Funnel */}
 
         <div className="flex items-center justify-center">
 
           <svg
-            width="430"
-            height="430"
+            className="w-full max-w-[340px] h-auto"
             viewBox="0 0 430 430"
           >
 
@@ -508,12 +498,14 @@ const FunnelChart = ({
                 ? stage.value
                 : data[index - 1].value;
 
-            const conversion =
+            const rawConversion =
               index === 0
                 ? 100
-                : Math.round(
-                    (stage.value / previous) * 100
-                  );
+                : previous > 0
+                  ? Math.min(100, Math.round((stage.value / previous) * 100))
+                  : 0;
+
+            const conversion = isNaN(rawConversion) ? 0 : rawConversion;
 
             return (
 
@@ -550,7 +542,7 @@ const FunnelChart = ({
 
                   <div className="text-right">
 
-                    <div className="flex items-center justify-end gap-1 text-green-600">
+                    <div className={`flex items-center justify-end gap-1 ${conversion > 0 ? "text-green-600 dark:text-green-400" : "text-slate-400 dark:text-slate-500"}`}>
 
                       <TrendingUp
                         size={15}
@@ -633,11 +625,11 @@ const FunnelChart = ({
           </p>
 
           <h3 className="mt-2 text-3xl font-bold text-blue-600">
-            {data[1]?.value.toLocaleString()}
+            {(data[1]?.value ?? 0).toLocaleString()}
           </h3>
 
           <p className="mt-2 text-sm font-semibold text-green-600">
-            +12.8%
+            {(data[1]?.value ?? 0) > 0 ? "100% verified" : "0 verified"}
           </p>
 
         </div>
@@ -649,11 +641,11 @@ const FunnelChart = ({
           </p>
 
           <h3 className="mt-2 text-3xl font-bold text-green-600">
-            {data[4]?.value.toLocaleString()}
+            {(data[4]?.value ?? 0).toLocaleString()}
           </h3>
 
-          <p className="mt-2 text-sm font-semibold text-green-600">
-            +7.5%
+          <p className={`mt-2 text-sm font-semibold ${(data[4]?.value ?? 0) > 0 ? "text-green-600" : "text-slate-500 dark:text-slate-400"}`}>
+            {(data[4]?.value ?? 0) > 0 ? `+${data[4]?.value} booked` : "0 scheduled"}
           </p>
 
         </div>

@@ -96,9 +96,45 @@ const updateCompanyHandler = async (request, reply) => {
   }
 };
 
+const researchCompanyHandler = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const pool = require("../config/db");
+    const { runResearchPipeline } = require("../agents/research.agent");
+
+    const company = await getCompanyById(id);
+    if (!company) {
+      throw new AppError("Company not found", 404);
+    }
+
+    const leadRes = await pool.query(
+      "SELECT id FROM leads WHERE company_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [id]
+    );
+
+    if (leadRes.rows.length === 0) {
+      throw new AppError("No active lead found for this company to ground research.", 400);
+    }
+
+    const leadId = leadRes.rows[0].id;
+    const result = await runResearchPipeline(leadId);
+
+    return reply.send({
+      success: true,
+      message: "Company research completed successfully",
+      data: result,
+    });
+  } catch (err) {
+    request.log.error(err);
+    const statusCode = err.statusCode || 422;
+    return reply.code(statusCode).send({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   createCompany: createCompanyHandler,
   getAllCompanies: getAllCompaniesHandler,
   getCompanyById: getCompanyByIdHandler,
   updateCompany: updateCompanyHandler,
+  researchCompany: researchCompanyHandler,
 };
