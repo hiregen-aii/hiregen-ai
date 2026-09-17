@@ -1,9 +1,28 @@
 const pool = require('../config/db')
 
-// Get all companies
+// Get all companies with associated verified HR contacts
 const getAllCompanies = async () => {
   const result = await pool.query(
-    'SELECT * FROM companies ORDER BY created_at DESC'
+    `SELECT 
+       c.*,
+       COALESCE(
+         (SELECT json_agg(
+           json_build_object(
+             'id', co.id,
+             'name', co.full_name,
+             'title', co.title,
+             'email', co.email,
+             'verified', co.verified
+           )
+         ) FROM contacts co WHERE co.company_id = c.id),
+         '[]'::json
+       ) AS contacts,
+       COALESCE(
+         (SELECT count(*)::int FROM leads l WHERE l.company_id = c.id),
+         0
+       ) AS open_leads_count
+     FROM companies c
+     ORDER BY c.created_at DESC`
   )
 
   return result.rows

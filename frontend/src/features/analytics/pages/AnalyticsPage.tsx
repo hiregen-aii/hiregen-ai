@@ -156,9 +156,10 @@ const AnalyticsPage = () => {
       {
         id: 2,
         title: "Signal → Lead Time",
-        value: "1.2h",
-        change: "+8.3%",
-        trend: "up",
+        value: "4.8m",
+        change: "-34.2% (Faster)",
+        trend: "down",
+        isInverseMetric: true,
         color: "#2563EB",
         icon: "timer",
       },
@@ -415,10 +416,22 @@ const AnalyticsPage = () => {
           <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                <XAxis dataKey="label" stroke="#9CA3AF" tick={{ fontSize: 12, fill: "#9CA3AF" }} />
+                <YAxis stroke="#9CA3AF" tick={{ fontSize: 12, fill: "#9CA3AF" }} />
+                <Tooltip
+                  cursor={{ fill: "rgba(124, 58, 237, 0.08)" }}
+                  contentStyle={{
+                    borderRadius: "12px",
+                    border: "1px solid #374151",
+                    backgroundColor: "#1F2937",
+                    color: "#F9FAFB",
+                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.4)",
+                    padding: "10px 14px",
+                  }}
+                  itemStyle={{ fontSize: "12px", fontWeight: 500 }}
+                  labelStyle={{ color: "#9CA3AF", fontSize: "11px", marginBottom: "4px" }}
+                />
                 <Bar dataKey="total_leads" name="Total Leads" fill="#7C3AED" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="emails_sent" name="Emails Sent" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="meetings_booked" name="Meetings Booked" fill="#22C55E" radius={[4, 4, 0, 0]} />

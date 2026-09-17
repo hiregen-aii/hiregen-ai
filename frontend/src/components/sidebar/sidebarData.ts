@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserCheck,
   ClipboardCheck,
   Building2,
   Megaphone,
@@ -21,6 +22,11 @@ export const sidebarItems = [
     title: "Lead Management",
     icon: Users,
     path: "/leads",
+  },
+  {
+    title: "Candidate Pool",
+    icon: UserCheck,
+    path: "/candidates",
   },
   {
     title: "Approval Queue",

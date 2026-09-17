@@ -69,6 +69,8 @@ fastify.register(require("./routes/notifications.routes"), { prefix: "/api/v1/no
 // NEW — Streaming CSV/Excel Export & Live Public Job Scraper
 fastify.register(require("./routes/export.routes"), { prefix: "/api/v1" });
 fastify.register(require("./routes/autopilot.routes"), { prefix: "/api/v1/autopilot" });
+fastify.register(require("./routes/candidates.routes"), { prefix: "/api/v1/candidates" });
+fastify.register(require("./routes/settings.routes"), { prefix: "/api/v1/settings" });
 
 // Service-to-service (n8n) endpoints — separate prefix, NOT behind
 // verifyToken/requireRole, since n8n can't hold a user JWT. This currently
@@ -177,9 +179,10 @@ async function start() {
     })
     console.log(`[SERVER] Port: ${env.PORT}`)
 
-    // Start background live hiring radar auto-sync (silent 10-minute cycle)
-    autoSyncService.startAutoSync(10)
-    console.log('[AUTO-SYNC] Background live radar worker initialized (10-minute silent schedule)')
+    // Start background live hiring radar auto-sync (hourly schedule)
+    const syncInterval = parseInt(process.env.AUTO_SYNC_INTERVAL_MINUTES || '60', 10);
+    autoSyncService.startAutoSync(syncInterval);
+    console.log(`[AUTO-SYNC] Background live radar worker initialized (${syncInterval}-minute schedule)`);
   } catch (err) {
     console.error("========== STARTUP ERROR ==========");
     console.error(err);

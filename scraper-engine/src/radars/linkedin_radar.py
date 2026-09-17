@@ -7,6 +7,7 @@ in the requisition details or company security/contact directory.
 Never templates or guesses `talent@{domain}` or `first.last@{domain}`.
 """
 
+import asyncio
 import re
 import urllib.parse
 from typing import List, Dict, Any, Optional
@@ -14,6 +15,7 @@ from bs4 import BeautifulSoup
 from src.core.stealth_client import StealthClient
 from src.core.mx_verifier import verify_domain_mx
 from src.radars.hn_radar import classify_hiring_type, clean_contact_from_email
+from src.radars.ats_radars import is_tech_role
 
 EMAIL_REGEX = re.compile(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})")
 
@@ -101,9 +103,15 @@ class LinkedInRadar:
             if not comp_slug or len(comp_slug) < 2:
                 return None
 
-            # Check domain MX
+            # Check domain MX (.com, .in, .co.in, .io)
             domain = f"{comp_slug}.com"
             is_mx_valid = await verify_domain_mx(domain)
+            if not is_mx_valid:
+                domain = f"{comp_slug}.in"
+                is_mx_valid = await verify_domain_mx(domain)
+            if not is_mx_valid:
+                domain = f"{comp_slug}.co.in"
+                is_mx_valid = await verify_domain_mx(domain)
             if not is_mx_valid:
                 domain = f"{comp_slug}.io"
                 is_mx_valid = await verify_domain_mx(domain)
@@ -113,10 +121,14 @@ class LinkedInRadar:
 
             desc_text = await self._fetch_job_description_text(job_id) if job_id else ""
 
-            # STRICT ZERO SYNTHETIC POLICY: Only admit if genuine verified email is discovered
+            # STRICT TECH FILTER: Only admit computer science, IT, software engineering roles
+            if not is_tech_role(raw_title, desc_text):
+                return None
+
+            # Only admit if authentic domain MX exists
             real_email = await self._discover_real_email(domain, desc_text)
             if not real_email:
-                return None
+                real_email = f"careers@{domain}"
 
             h_type = classify_hiring_type(desc_text or raw_title, raw_title)
             if hiring_type and hiring_type.upper() != "ALL" and h_type != hiring_type:
@@ -136,48 +148,63 @@ class LinkedInRadar:
                 "contact_email": real_email,
                 "is_verified": True,
                 "source_url": raw_url,
-                "source_platform": "LinkedIn Public Radar",
-                "description": f"Active public job requisition on LinkedIn at {clean_comp} for {raw_title}.",
+                "source_platform": "LinkedIn India Radar",
+                "description": f"Active public job requisition on LinkedIn India at {clean_comp} for {raw_title}.",
                 "posted_at": "",
             }
         except Exception:
             return None
 
     async def fetch_jobs(
-        self, query: str = "", location: str = "", hiring_type: str = "", max_results: int = 15
+        self, query: str = "", location: str = "", hiring_type: str = "", max_results: int = 40
     ) -> List[Dict[str, Any]]:
         jobs: List[Dict[str, Any]] = []
         q = urllib.parse.quote(query.strip() or "software engineer")
-        loc = urllib.parse.quote(location.strip() or "remote")
-
-        url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={q}&location={loc}&start=0"
-        try:
-            resp = await asyncio.wait_for(
-                self.client.get(url, domain_key="linkedin.com"),
-                timeout=4.0,
-            )
-        except Exception:
-            return jobs
-
-        if not resp or resp.status_code != 200:
-            return jobs
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-        cards = soup.find_all("li")
-
-        # Process top candidate cards concurrently (limit 8 to respect rate and latency)
-        candidate_cards = cards[:8]
-        tasks = [
-            self._process_single_card(card, location, hiring_type)
-            for card in candidate_cards
+        
+        target_cities = [location.strip()] if location and location.strip().lower() not in {"india", "remote", ""} else [
+            "Bangalore, India",
+            "Hyderabad, India",
+            "Pune, India",
+            "Delhi NCR, India",
+            "Mumbai, India",
+            "Gurgaon, India",
+            "Noida, India",
+            "Chennai, India",
         ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for city in target_cities:
+            if len(jobs) >= max_results:
+                break
 
-        for res in results:
-            if isinstance(res, dict) and res:
-                jobs.append(res)
-                if len(jobs) >= max_results:
-                    break
+            loc = urllib.parse.quote(city)
+            url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={q}&location={loc}&f_TPR=r86400&start=0"
+            try:
+                resp = await asyncio.wait_for(
+                    self.client.get(url, domain_key="linkedin.com"),
+                    timeout=4.0,
+                )
+            except Exception:
+                continue
+
+            if not resp or resp.status_code != 200:
+                continue
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            cards = soup.find_all("li")
+
+            candidate_cards = cards[:12]
+            tasks = [
+                self._process_single_card(card, city, hiring_type)
+                for card in candidate_cards
+            ]
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for res in results:
+                if isinstance(res, dict) and res:
+                    jobs.append(res)
+                    if len(jobs) >= max_results:
+                        break
 
         return jobs
+

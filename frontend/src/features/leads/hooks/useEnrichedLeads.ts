@@ -41,6 +41,9 @@ export interface EnrichedLead {
   stage: LeadStage;
   source: string;
   sourceUrl?: string;
+  role?: string;
+  location?: string;
+  domain?: string;
 }
 
 export function useEnrichedLeads() {
@@ -100,6 +103,9 @@ export function useEnrichedLeads() {
         stage: lead.stage,
         source: lead.source || "LinkedIn",
         sourceUrl: lead.source_url ?? undefined,
+        role: lead.role_title || undefined,
+        location: lead.location || undefined,
+        domain: companyDomain || undefined,
       };
     });
   }, [leadsQuery.data, companiesQuery.data, contactsQuery.data]);

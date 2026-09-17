@@ -1,11 +1,15 @@
 const { scrapeHiringSignals } = require("./scraper.service");
+const candidateService = require("./candidate.service");
 
 let syncIntervalTimer = null;
+let warmupTimer = null;
 let isSyncing = false;
 let isEnabled = true;
-let intervalMinutes = parseInt(process.env.AUTO_SYNC_INTERVAL_MINUTES || "10", 10);
+
+// Default to 60 minutes (1 hour) as requested for production schedule
+let intervalMinutes = parseInt(process.env.AUTO_SYNC_INTERVAL_MINUTES || "60", 10);
 if (isNaN(intervalMinutes) || intervalMinutes < 1) {
-  intervalMinutes = 10;
+  intervalMinutes = 60;
 }
 
 let lastSyncAt = null;
@@ -15,10 +19,12 @@ let lastResult = null;
 let lastError = null;
 
 /**
- * Executes one automatic ingestion cycle across open-web live job feeds.
+ * Executes one automatic ingestion cycle across open-web live job feeds and candidate talent.
+ * Strictly targeted to India with 24-hour freshness.
  */
 async function runAutoSyncCycle(reason = "INTERVAL") {
   if (isSyncing) {
+    console.log("[AUTO-SYNC] Cycle skipped: Previous sync cycle is still running.");
     return {
       status: "SKIPPED_ALREADY_RUNNING",
       message: "Sync cycle already in progress.",
@@ -27,11 +33,27 @@ async function runAutoSyncCycle(reason = "INTERVAL") {
 
   isSyncing = true;
   lastError = null;
+  console.log(`[AUTO-SYNC] Starting background sync cycle (${reason}) - Targeting India (24h Freshness)...`);
 
   try {
-    const stats = await scrapeHiringSignals();
+    // 1 & 2. Concurrently scrape Indian hiring signals and sync candidate talent pool
+    const [leadResult, candidateResult] = await Promise.allSettled([
+      scrapeHiringSignals({
+        location: "India",
+        query: "software engineer",
+        hiringType: "",
+      }),
+      candidateService.syncIndianCandidates(),
+    ]);
 
-    // Auto-generate outreach drafts and handle autopilot dispatch for high-fit leads
+    const stats = leadResult.status === "fulfilled" ? leadResult.value : { newlyAdded: 0, error: leadResult.reason?.message };
+    if (candidateResult.status === "fulfilled") {
+      stats.candidates = candidateResult.value;
+    } else {
+      console.warn("[AUTO-SYNC] Candidate talent sync notice:", candidateResult.reason?.message);
+    }
+
+    // 3. Auto-generate outreach drafts and handle autopilot dispatch for high-fit leads
     try {
       const { syncDraftsForActiveLeads } = require("./outreachDraft.service");
       const draftStats = await syncDraftsForActiveLeads(25);
@@ -50,6 +72,11 @@ async function runAutoSyncCycle(reason = "INTERVAL") {
       nextSyncAt = null;
     }
 
+    console.log(
+      `[AUTO-SYNC] Completed cycle #${totalRuns}: ${stats.newlyAdded || 0} leads added, ` +
+      `${stats.candidates?.newlyAdded || 0} candidates ingested. Next run at: ${nextSyncAt}`
+    );
+
     return {
       status: "SUCCESS",
       reason,
@@ -58,6 +85,7 @@ async function runAutoSyncCycle(reason = "INTERVAL") {
     };
   } catch (err) {
     lastError = err.message;
+    console.error("[AUTO-SYNC ERROR] Cycle encountered failure:", err.message);
     return {
       status: "ERROR",
       reason,
@@ -70,6 +98,7 @@ async function runAutoSyncCycle(reason = "INTERVAL") {
 
 /**
  * Starts the automatic background sync schedule.
+ * Defaults to 60-minute hourly cycle, with an immediate warmup run 12 seconds after launch.
  */
 function startAutoSync(customIntervalMinutes) {
   if (customIntervalMinutes && !isNaN(customIntervalMinutes) && customIntervalMinutes > 0) {
@@ -80,19 +109,35 @@ function startAutoSync(customIntervalMinutes) {
   if (syncIntervalTimer) {
     clearInterval(syncIntervalTimer);
   }
+  if (warmupTimer) {
+    clearTimeout(warmupTimer);
+  }
 
   nextSyncAt = new Date(Date.now() + intervalMinutes * 60 * 1000).toISOString();
 
+  // 1. Recurring 1-Hour Schedule
   syncIntervalTimer = setInterval(() => {
     runAutoSyncCycle("SCHEDULED_INTERVAL").catch((err) => {
       console.warn("[AUTO-SYNC] Scheduled run encountered error:", err.message);
     });
   }, intervalMinutes * 60 * 1000);
 
-  // Unref so the interval timer does not keep Node.js process alive during graceful shutdown / tests
   if (syncIntervalTimer && typeof syncIntervalTimer.unref === "function") {
     syncIntervalTimer.unref();
   }
+
+  // 2. Initial Warmup Run: Execute first cycle 12s after server startup so pipeline populates immediately
+  warmupTimer = setTimeout(() => {
+    runAutoSyncCycle("SERVER_STARTUP_WARMUP").catch((err) => {
+      console.warn("[AUTO-SYNC] Startup warmup sync notice:", err.message);
+    });
+  }, 12000);
+
+  if (warmupTimer && typeof warmupTimer.unref === "function") {
+    warmupTimer.unref();
+  }
+
+  console.log(`[AUTO-SYNC] Initialized hourly background scraper (Interval: ${intervalMinutes}m). Initial warmup runs in 12s.`);
 }
 
 /**
@@ -104,7 +149,12 @@ function stopAutoSync() {
     clearInterval(syncIntervalTimer);
     syncIntervalTimer = null;
   }
+  if (warmupTimer) {
+    clearTimeout(warmupTimer);
+    warmupTimer = null;
+  }
   nextSyncAt = null;
+  console.log("[AUTO-SYNC] Background scheduler stopped.");
 }
 
 /**

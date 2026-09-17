@@ -14,7 +14,7 @@ export interface NotificationItem {
   id: string | number;
   title: string;
   message: string;
-  type: "success" | "edit" | "delete" | "meeting";
+  type: "success" | "edit" | "delete" | "meeting" | "error";
   createdAt: Date;
   read: boolean;
 }

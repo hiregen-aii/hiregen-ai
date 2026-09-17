@@ -63,18 +63,28 @@ const CompanyPage = () => {
 
   const filtered = useMemo(() => {
     const list = companies ?? [];
-    const q = search.toLowerCase();
-    return list.filter(
-      (c) => c.name.toLowerCase().includes(q) || (c.industry ?? "").toLowerCase().includes(q)
-    );
+    const q = search.toLowerCase().trim();
+    if (!q) return list;
+    return list.filter((c) => {
+      const nameMatch = c.name.toLowerCase().includes(q);
+      const indMatch = (c.industry ?? "").toLowerCase().includes(q);
+      const domainMatch = (c.domain ?? "").toLowerCase().includes(q);
+      const contactsMatch = (c.contacts || []).some(
+        (ct) =>
+          ct.name.toLowerCase().includes(q) ||
+          (ct.title ?? "").toLowerCase().includes(q) ||
+          ct.email.toLowerCase().includes(q)
+      );
+      return nameMatch || indMatch || domainMatch || contactsMatch;
+    });
   }, [companies, search]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Companies</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Companies & HR Network</h1>
         <p className="mt-1 text-slate-500 dark:text-slate-400">
-          Every company currently being tracked or prospected.
+          Indian enterprises and verified recruitment contacts currently tracked.
         </p>
       </div>
 
@@ -84,7 +94,7 @@ const CompanyPage = () => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search companies..."
+              placeholder="Search company, domain, HR contact name..."
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-700 dark:bg-[#1E293B] dark:text-white"
             />
           </div>
@@ -189,11 +199,62 @@ const CompanyPage = () => {
                     value={new Date(selected.created_at).toLocaleDateString()}
                   />
                 </div>
+              </div>
 
-                <p className="mt-5 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  CEO, phone, direct email, document uploads, and a "hiring progress %" aren't part of the
-                  real company record — those need new backend fields/tables before they can show real data.
-                </p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-[#111827]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold dark:text-white">Verified HR & Talent Acquisition Contacts</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Direct point of contacts verified with DNS MX validation
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    {(selected.contacts || []).length} Verified Contact{(selected.contacts || []).length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                {(selected.contacts || []).length === 0 ? (
+                  <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    No direct HR contacts synced yet. Next automated sync cycle will enrich recruiters.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {selected.contacts?.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700 font-bold dark:bg-violet-900/40 dark:text-violet-300">
+                            {contact.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm text-slate-900 dark:text-white">{contact.name}</span>
+                              {contact.verified && (
+                                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+                                  VERIFIED
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{contact.title || "Talent Acquisition Partner"}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`mailto:${contact.email}`}
+                            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-violet-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                          >
+                            <Mail size={13} className="text-violet-500" />
+                            <span>{contact.email}</span>
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-[#111827]">

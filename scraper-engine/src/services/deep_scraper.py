@@ -71,7 +71,7 @@ class ScrapeRequest(BaseModel):
     query: Optional[str] = Field(default="")
     location: Optional[str] = Field(default="")
     hiring_type: Optional[str] = Field(default="")
-    max_leads: Optional[int] = Field(default=30, ge=1, le=100)
+    max_leads: Optional[int] = Field(default=65, ge=1, le=100)
 
 
 class ScrapeResponse(BaseModel):
@@ -128,19 +128,20 @@ class DeepScraperService:
             "LinkedIn Public Radar",
         ]
 
+        target_loc = request.location or "India"
         # Execute radars concurrently
         results = await asyncio.gather(
             self.hn_radar.fetch_jobs(
                 query=request.query or "",
                 hiring_type=request.hiring_type or "",
-                max_results=request.max_leads or 30,
+                max_results=request.max_leads or 50,
             ),
-            self.ats_radar.fetch_all(query=request.query or "", max_results=15),
+            self.ats_radar.fetch_all(query=request.query or "", max_results=25),
             self.linkedin_radar.fetch_jobs(
                 query=request.query or "",
-                location=request.location or "",
+                location=target_loc,
                 hiring_type=request.hiring_type or "",
-                max_results=15,
+                max_results=35,
             ),
             return_exceptions=True,
         )
@@ -159,7 +160,7 @@ class DeepScraperService:
         validated_leads: List[LeadItem] = []
 
         for item in raw_leads:
-            if len(validated_leads) >= (request.max_leads or 30):
+            if len(validated_leads) >= (request.max_leads or 65):
                 break
 
             domain = item.get("domain", "").strip().lower()
@@ -174,6 +175,25 @@ class DeepScraperService:
                 continue
 
             if request.hiring_type and request.hiring_type.upper() != "ALL" and item.get("hiring_type") != request.hiring_type:
+                continue
+
+            # Strict Indian Geographic Filter: Only admit Indian locations / domains
+            item_loc = (item.get("location") or "").lower()
+            item_domain = (item.get("domain") or "").lower()
+            item_source = (item.get("source_platform") or "").lower()
+            item_desc = (item.get("description") or "").lower()
+            is_indian = (
+                any(k in item_loc for k in [
+                    "india", "bengaluru", "bangalore", "hyderabad", "pune", "gurgaon",
+                    "gurugram", "noida", "mumbai", "delhi", "chennai", "kolkata",
+                    "ahmedabad", "jaipur", "kochi", "chandigarh", "trivandrum", "surat"
+                ]) or
+                item_domain.endswith(".in") or
+                item_domain.endswith(".co.in") or
+                "india" in item_source or
+                any(k in item_desc for k in ["bangalore", "bengaluru", "hyderabad", "pune", "india", "delhi ncr"])
+            )
+            if not is_indian:
                 continue
 
             dedupe_key = compute_dedupe_key(domain, role, url)

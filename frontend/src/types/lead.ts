@@ -32,6 +32,8 @@ export interface Lead {
   contact_name?: string | null;
   contact_title?: string | null;
   contact_email?: string | null;
+  role_title?: string | null;
+  location?: string | null;
   created_at: string;
   updated_at: string;
 }

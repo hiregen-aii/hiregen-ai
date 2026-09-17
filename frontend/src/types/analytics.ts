@@ -49,6 +49,7 @@ export interface AnalyticsStat {
   trend: "up" | "down" | "neutral";
   color: string;
   icon: string;
+  isInverseMetric?: boolean;
 }
 
 export interface FunnelStage {

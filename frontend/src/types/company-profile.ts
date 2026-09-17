@@ -4,6 +4,15 @@
 // (used by the pre-existing, backend-less Company Profile components —
 // left untouched to avoid breaking whatever still imports it).
 
+export interface CompanyContactRef {
+  id: string;
+  name: string;
+  title: string | null;
+  email: string;
+  phone?: string | null;
+  verified?: boolean;
+}
+
 export interface CompanyProfile {
   id: string;
   name: string;
@@ -13,6 +22,8 @@ export interface CompanyProfile {
   linkedin_url: string | null;
   created_at: string;
   updated_at: string;
+  contacts?: CompanyContactRef[];
+  open_leads_count?: number;
 }
 
 // GET /api/v1/companies/:id/timeline — real, aggregated from emails,

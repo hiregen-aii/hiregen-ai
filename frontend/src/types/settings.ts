@@ -4,9 +4,15 @@ export type ThemeMode =
   | "system";
 
 export type AIModel =
+  | "GROQ"
+  | "GEMINI"
+  | "OPENAI"
+  | "GROK"
+  | "CUSTOM"
   | "GPT-4"
   | "Claude"
-  | "Gemini";
+  | "Gemini"
+  | string;
 
 export interface AppearanceSettings {
   theme: ThemeMode;

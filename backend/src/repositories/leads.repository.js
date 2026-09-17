@@ -52,6 +52,8 @@ const getAllLeads = async () => {
          l.*, 
          hs.source AS source, 
          hs.source_url AS source_url,
+         hs.role_title AS role_title,
+         COALESCE(hs.raw_payload->>'location', 'India') AS location,
          c.name AS company_name,
          c.domain AS company_domain,
          c.industry AS company_industry,

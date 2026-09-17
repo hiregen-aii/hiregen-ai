@@ -45,14 +45,18 @@ function getNextUserAgent() {
   return profile;
 }
 
-// In-Memory Circuit Breakers per hostname (trip on 429 or 403, cooldown 10 mins)
+// In-Memory Circuit Breakers per hostname (trip on 429 or 403)
 const circuitBreakers = new Map();
-const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
+function getCooldownMs(hostname) {
+  if (hostname.includes("github.com")) return 15 * 1000; // 15s cooldown for GitHub
+  return 2 * 60 * 1000; // 2 minutes for general sites
+}
 
 function isCircuitOpen(hostname) {
   const tripTime = circuitBreakers.get(hostname);
   if (!tripTime) return false;
-  if (Date.now() - tripTime > COOLDOWN_MS) {
+  if (Date.now() - tripTime > getCooldownMs(hostname)) {
     circuitBreakers.delete(hostname);
     return false;
   }
@@ -61,7 +65,7 @@ function isCircuitOpen(hostname) {
 
 function tripCircuit(hostname) {
   circuitBreakers.set(hostname, Date.now());
-  console.warn(`[CIRCUIT BREAKER] Tripped for ${hostname} due to rate-limit / block. Cooling down for 10 minutes.`);
+  console.warn(`[CIRCUIT BREAKER] Tripped for ${hostname} due to rate-limit / block. Cooling down for ${getCooldownMs(hostname) / 1000}s.`);
 }
 
 /**

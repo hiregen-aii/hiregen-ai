@@ -47,8 +47,12 @@ services:
       DB_PASSWORD: postgres
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/hiregen
       AI_GATEWAY_BASE_URL: http://ai-platform-service:3100
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       - ../backend/src:/app/src
+      - ../backend/migrations:/app/migrations
     ports:
       - "3000:3000"
     depends_on:
@@ -78,8 +82,8 @@ services:
       NODE_ENV: development
       HOST: 0.0.0.0
       PORT: 3100
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - "3100:3100"

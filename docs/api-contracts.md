@@ -58,15 +58,36 @@ hiring_signals (
   status signal_status,        -- NEW -> ENRICHING -> RESEARCHED -> QUALIFIED/REJECTED
   detected_at TIMESTAMPTZ
 )
-Team 3 — AI Platform
+Team 3 — AI Platform & Universal Gateway
 Method	Endpoint	Purpose	Role
 GET	/api/v1/approval-queue	Pending drafts for review	SALES_REP+
 POST	/api/v1/approval-queue/:id/approve	Approve/edit draft → triggers send	SALES_REP+
 POST	/api/v1/approval-queue/:id/reject	Reject draft	SALES_REP+
+GET	/api/v1/settings/ai	Fetch active AI model, temperature, keys	ADMIN+
+PUT	/api/v1/settings/ai	Update dynamic AI provider/model settings	ADMIN+
+POST	/api/v1/settings/ai/test	Verify AI provider connection live	ADMIN+
 
-Owned tables: approval_queue, company_memory (shared with Team 2 — see below)
+Owned tables: approval_queue, company_memory, system_settings
 
-⚠️ Cross-team schema: company_memory is written to by Team 2's Enrichment Agent and read by Team 3's Personalization/Follow-up Agents. Any change to this table needs sign-off from both Deepak (Team 2) and Ansh (Team 3).
+Team 6 — Talent Intelligence & Candidate Pool
+Method	Endpoint	Purpose	Role
+GET	/api/v1/candidates	List & multi-filter candidates (skills, ctc, location)	All (scoped)
+POST	/api/v1/candidates	Create candidate profile manually	RECRUITER+
+GET	/api/v1/candidates/stats	Get candidate pool KPIs and score aggregates	All (scoped)
+POST	/api/v1/candidates/sync	Trigger live Indian developer talent sync	RECRUITER+
+GET	/api/v1/candidates/export	Export candidates to CSV or styled Excel (.xlsx)	RECRUITER+
+PUT	/api/v1/candidates/:id	Update candidate details, CTC, or status	RECRUITER+
+DELETE	/api/v1/candidates/:id	Remove candidate profile	ADMIN, MANAGER
+
+Owned tables: candidates
+
+Team 7 — Scraper & Export Engine
+Method	Endpoint	Purpose	Role
+POST	/api/v1/scraper/trigger	Trigger multi-source live scraping radar	SALES_REP+
+GET	/api/v1/scraper/auto-sync	Get background automated scraper status	All (scoped)
+POST	/api/v1/scraper/auto-sync/toggle	Toggle background scraper interval/active	SALES_REP+
+POST	/api/v1/scraper/auto-sync/run-now	Trigger immediate background scraper cycle	SALES_REP+
+GET	/api/v1/export/leads	Stream leads export to CSV or styled Excel	All (scoped)
 
 Team 4 — Automation & Infrastructure
 Method	Endpoint	Purpose	Role
@@ -88,6 +109,9 @@ companies / contacts table	Team 3 (AI Memory), Team 5 (Company Profile UI)
 hiring_signals table	Team 4 (n8n workflows), Team 2 downstream modules
 approval_queue table	Team 4 (n8n follow-up sequencer), Team 5 (Approval Queue UI)
 company_memory table	Team 2 (writer), Team 3 (reader)
+candidates table	Team 6 (Talent Intelligence), Team 5 (Candidate UI)
+system_settings table	Team 3 (AI Gateway), Team 5 (Settings UI)
+
 Change Log
 Date	Change	Author
-(add entries here as the schema evolves)
+2026-09-17	Integrated Candidates Talent Radar, AI Gateway Multi-Provider Settings, Naukri & WorkIndia Radars, Noreply Filter, and Indian Geo-Purge	Lead Systems Architect

@@ -98,9 +98,13 @@ async function buildLeadsExcelWorkbook(leads = []) {
 
     // Alternating subtle zebra striping
     const isEven = rowNumber % 2 === 0;
-    addedRow.eachCell((cell) => {
+    addedRow.eachCell((cell, colNumber) => {
       cell.font = { name: "Segoe UI", size: 10 };
-      cell.alignment = { vertical: "middle" };
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: [6, 12, 13, 14, 16].includes(colNumber) ? "center" : "left",
+        wrapText: [5, 8].includes(colNumber), // Wrap Job Title and Source URL
+      };
       if (isEven) {
         cell.fill = {
           type: "pattern",
@@ -112,6 +116,18 @@ async function buildLeadsExcelWorkbook(leads = []) {
         bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
       };
     });
+  });
+
+  // Auto-adjust column widths dynamically based on max content length to prevent text clipping
+  worksheet.columns.forEach((column) => {
+    let maxLen = column.header ? String(column.header).length : 12;
+    column.eachCell({ includeEmpty: false }, (cell) => {
+      const val = cell.value ? String(cell.value) : "";
+      if (val.length > maxLen && val.length < 65) {
+        maxLen = val.length;
+      }
+    });
+    column.width = Math.min(60, Math.max(maxLen + 4, 14));
   });
 
   return workbook;

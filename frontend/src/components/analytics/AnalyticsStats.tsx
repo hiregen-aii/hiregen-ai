@@ -91,9 +91,9 @@ const AnalyticsStats = ({
 
                 <p
                   className={`mt-2 text-sm font-semibold ${
-                    stat.trend === "up"
+                    (stat.isInverseMetric ? stat.trend === "down" : stat.trend === "up")
                       ? "text-green-500 dark:text-green-400"
-                      : stat.trend === "down"
+                      : (stat.isInverseMetric ? stat.trend === "up" : stat.trend === "down")
                       ? "text-red-500 dark:text-red-400"
                       : "text-slate-500 dark:text-slate-400"
                   }`}
@@ -157,9 +157,9 @@ const AnalyticsStats = ({
 
                 <p
                   className={`mt-2 text-sm font-semibold ${
-                    stat.trend === "up"
+                    (stat.isInverseMetric ? stat.trend === "down" : stat.trend === "up")
                        ? "text-green-500 dark:text-green-400"
-                       : stat.trend === "down"
+                       : (stat.isInverseMetric ? stat.trend === "up" : stat.trend === "down")
                        ? "text-red-500 dark:text-red-400"
                        : "text-slate-500 dark:text-slate-400"
                   }`}

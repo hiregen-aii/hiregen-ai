@@ -14,72 +14,140 @@ Rules:
 - Return ONLY valid JSON matching this schema:
   {"status": "SUCCESS" | "INSUFFICIENT_DATA", "summary": string, "sources": [{"url": string, "supports": string}]}`;
 
+const { getActiveAiConfig } = require('./aiSettings.service');
+
 async function callAiGateway(prompt, config = {}) {
-  let baseUrl = config.baseUrl || process.env.AI_GATEWAY_BASE_URL;
-  let apiKey = config.apiKey || process.env.AI_GATEWAY_API_KEY || process.env.GROQ_API_KEY || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
-  let model = config.model || process.env.AI_GATEWAY_MODEL;
+  const activeSystemPrompt = config.systemPrompt || SYSTEM_PROMPT;
+  const runtimeConfig = await getActiveAiConfig();
 
-  // Auto-detect Groq or xAI Grok provider if API key is provided
-  if (!baseUrl && (process.env.GROQ_API_KEY || (apiKey && apiKey.startsWith("gsk_")))) {
-    baseUrl = "https://api.groq.com/openai/v1";
-    model = model || process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-    apiKey = apiKey || process.env.GROQ_API_KEY;
-  } else if (!baseUrl && (process.env.GROK_API_KEY || process.env.XAI_API_KEY || (apiKey && apiKey.startsWith("xai-")))) {
-    baseUrl = "https://api.x.ai/v1";
-    model = model || "grok-2-latest";
-    apiKey = apiKey || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+  const provider = (config.provider || runtimeConfig.provider || "GROQ").toUpperCase();
+  const apiKey = config.apiKey || runtimeConfig.apiKey;
+  const model = config.model || runtimeConfig.model;
+  const baseUrl = config.baseUrl || runtimeConfig.baseUrl;
+  const temperature = config.temperature ?? runtimeConfig.temperature ?? 0.35;
+
+  // 1. Google Gemini Provider
+  if (provider === "GEMINI" && apiKey) {
+    try {
+      const endpoint = `${baseUrl.replace(/\/+$/, '')}/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: `${activeSystemPrompt}\n\nTask:\n${prompt}` }],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawContent) {
+          let parsed;
+          try {
+            parsed = JSON.parse(rawContent);
+          } catch {
+            const match = rawContent.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
+          if (parsed) {
+            return { raw: parsed, model, provider: "Google Gemini" };
+          }
+        }
+      } else {
+        const errText = await response.text().catch(() => "");
+        console.warn(`[AI GATEWAY] Gemini returned HTTP ${response.status}: ${errText.slice(0, 200)}. Trying fallback.`);
+      }
+    } catch (geminiErr) {
+      console.warn(`[AI GATEWAY] Gemini call error (${geminiErr.message}). Trying fallback.`);
+    }
   }
 
-  if (!baseUrl || !apiKey || !model) {
-    throw new Error(
-      "AI Gateway is not configured — set GROQ_API_KEY or GROK_API_KEY in .env, or AI_GATEWAY_BASE_URL, AI_GATEWAY_API_KEY, and AI_GATEWAY_MODEL"
-    );
+  // 2. OpenAI-compatible Providers (Groq, OpenAI, xAI Grok, Custom)
+  if (apiKey || provider === "CUSTOM") {
+    try {
+      const endpoint = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey || "test"}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: activeSystemPrompt },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature,
+        }),
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        const rawContent = payload?.choices?.[0]?.message?.content;
+        if (rawContent) {
+          let rawResult = JSON.parse(rawContent);
+          return {
+            raw: rawResult,
+            model,
+            provider,
+          };
+        }
+      } else {
+        const errText = await response.text().catch(() => "");
+        console.warn(`[AI GATEWAY] ${provider} returned HTTP ${response.status}: ${errText.slice(0, 200)}. Trying fallback.`);
+      }
+    } catch (provErr) {
+      console.warn(`[AI GATEWAY] ${provider} call error (${provErr.message}). Trying fallback.`);
+    }
   }
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
+  // 3. Fallback: If primary selected provider failed, attempt Groq then Gemini from .env
+  if (provider !== "GROQ" && process.env.GROQ_API_KEY) {
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "groq/compound-mini",
+          messages: [
+            { role: "system", content: activeSystemPrompt },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.35,
+        }),
+      });
 
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    throw new Error(`AI Gateway request failed (${response.status}): ${errorBody.slice(0, 300)}`);
+      if (response.ok) {
+        const payload = await response.json();
+        const rawContent = payload?.choices?.[0]?.message?.content;
+        if (rawContent) {
+          return {
+            raw: JSON.parse(rawContent),
+            model: "groq/compound-mini",
+            provider: "Groq (Fallback)",
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
-  const payload = await response.json();
-  const rawContent = payload?.choices?.[0]?.message?.content;
-  if (!rawContent) {
-    throw new Error("AI Gateway returned no message content");
-  }
-
-  let rawResult;
-  try {
-    rawResult = JSON.parse(rawContent);
-  } catch (err) {
-    throw new Error(`AI Gateway returned non-JSON content: ${err.message}`);
-  }
-
-  // Don't silently work around a shape mismatch — surface it immediately
-  // so it gets reported back rather than fed to the source validator as-is.
-  if (typeof rawResult !== "object" || rawResult === null || Array.isArray(rawResult)) {
-    throw new Error("AI Gateway response does not match the agreed schema (expected a JSON object)");
-  }
-
-  return {
-    raw: rawResult,
-    model,
-  };
+  throw new Error(`AI Gateway failed across active provider (${provider}) and fallbacks. Check API keys and settings.`);
 }
 
 module.exports = {

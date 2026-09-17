@@ -179,7 +179,10 @@ const LeadsPage = () => {
       const matchesSearch =
         lead.company.toLowerCase().includes(q) ||
         lead.contact.toLowerCase().includes(q) ||
-        lead.email.toLowerCase().includes(q);
+        lead.email.toLowerCase().includes(q) ||
+        (lead.role && lead.role.toLowerCase().includes(q)) ||
+        (lead.location && lead.location.toLowerCase().includes(q)) ||
+        (lead.domain && lead.domain.toLowerCase().includes(q));
 
       const matchesStatus = statusFilter === "All" || lead.status === statusFilter;
       const matchesType = typeFilter === "All" || lead.type === typeFilter;

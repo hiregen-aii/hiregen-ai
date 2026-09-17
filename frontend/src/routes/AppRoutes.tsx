@@ -10,6 +10,7 @@ import ResetPassword from "@/features/authentication/pages/ResetPassword";
 
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import LeadsPage from "@/features/leads/pages/LeadsPage";
+import CandidatesPage from "@/features/candidates/pages/CandidatesPage";
 import ApprovalPage from "@/features/approval/pages/ApprovalPage";
 import CompanyPage from "@/features/company/pages/CompanyPage";
 import CampaignsPage from "@/features/campaigns/pages/CampaignsPage";
@@ -35,6 +36,7 @@ const AppRoutes = () => {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/candidates" element={<CandidatesPage />} />
           <Route path="/approval" element={<ApprovalPage />} />
           <Route path="/company" element={<CompanyPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />

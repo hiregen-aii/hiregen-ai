@@ -4,6 +4,7 @@ import {
   Pencil,
   Trash2,
   CalendarCheck,
+  AlertCircle,
 } from "lucide-react";
 
 import { useNotifications } from "@/context/NotificationContext";
@@ -20,6 +21,9 @@ const iconMap = {
   ),
   meeting: (
     <CalendarCheck className="h-6 w-6 text-violet-500" />
+  ),
+  error: (
+    <AlertCircle className="h-6 w-6 text-red-500" />
   ),
 };
 
